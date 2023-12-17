@@ -13,6 +13,10 @@
 #include "opengl_context.h"
 #include "utils.h"
 
+#include <iostream>
+#include <fstream>
+#include <string>
+
 #define ANGLE_TO_RADIAN(x) (float)((x)*M_PI / 180.0f) 
 #define RADIAN_TO_ANGEL(x) (float)((x)*180.0f / M_PI) 
 
@@ -34,8 +38,10 @@ bool isSpace = false;
 bool isLeft = false;
 bool isRight = false;
 
-// bonus bullet
-bool isShoot = false;
+bool isClick;
+double last_x, last_y;
+double x, y;
+float rot_x = 0.0f, rot_y = 0.0f, pre_rot_x = 0.0f, pre_rot_y = 0.0f;
 
 // init rotation degree and position information
 float rot = 0.0f;
@@ -51,27 +57,18 @@ void resizeCallback(GLFWwindow* window, int width, int height) {
   }
 }
 
-void keyCallback(GLFWwindow* window, int key, int, int action, int) {
-  // There are three actions: press, release, hold(repeat)
-  // if (action == GLFW_REPEAT) return;
+float normalRot(float rot) {
+  while (rot >= 360.0f) {
+    rot -= 360.0;
+  }
+  return rot;
+}
 
-  // Press ESC to close the window.
+void keyCallback(GLFWwindow* window, int key, int, int action, int mods) {
   if (key == GLFW_KEY_ESCAPE) {
     glfwSetWindowShouldClose(window, GLFW_TRUE);
     return;
   }
-  /* TODO#4-1: Detect key-events, perform rotation or fly
-   *       1. Use switch && case to find the key you want.
-   *       2. Press "SPACE" for fly up, fly forward and wing rotate meanwhile.
-   *       3. Press "GLFW_KEY_LEFT" for turn left.
-   *       4. Press "GLFW_KEY_RIGHT " for turn right.
-   * Hint:
-   *       glfw3's key list (https://www.glfw.org/docs/3.3/group__keys.html)
-   *       glfw3's action codes (https://www.glfw.org/docs/3.3/group__input.html#gada11d965c4da13090ad336e030e4d11f)
-   * Note:
-   *       You should finish rendering your airplane first.
-   *       Otherwise you will spend a lot of time debugging this with a black screen.
-   */
   
   if (key == GLFW_KEY_SPACE && action == GLFW_PRESS) {
     isSpace = true;
@@ -89,10 +86,14 @@ void keyCallback(GLFWwindow* window, int key, int, int action, int) {
   } else if (key == GLFW_KEY_RIGHT && action == GLFW_RELEASE) {
     isRight = false;
   }
-  if (key == GLFW_KEY_X && action == GLFW_PRESS) {
-    isShoot = true;
-  } else if (key == GLFW_KEY_X && action == GLFW_RELEASE) {
-    isShoot = false;
+}
+
+void mouse_callback(GLFWwindow* window, int button, int action, int mods) {
+  if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
+     glfwGetCursorPos(window, &last_x, &last_y);
+     isClick = true;
+  } else if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE) {
+    isClick = false;
   }
 }
 
@@ -106,11 +107,9 @@ void initOpenGL() {
   OpenGLContext::createContext(43, GLFW_OPENGL_COMPAT_PROFILE);
 #endif
   GLFWwindow* window = OpenGLContext::getWindow();
-  /* TODO#0: Change window title to "HW1 - `your student id`"
-   *        Ex. HW1 - 312550000 
-   */
-  glfwSetWindowTitle(window, "HW1 - 312551115");
+  glfwSetWindowTitle(window, "final project");
   glfwSetKeyCallback(window, keyCallback);
+  glfwSetMouseButtonCallback(window, mouse_callback);
   glfwSetFramebufferSizeCallback(window, resizeCallback);
   glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 #ifndef NDEBUG
@@ -121,19 +120,19 @@ void initOpenGL() {
 }
 
 void drawCube(glm::vec3 pos) { 
-  float halfLength = 0.3f;
-  float halfWidth = 0.3f;
-  float halfHeight = 0.3f;
+  float halfLength = 0.5f;
+  float halfWidth = 0.5f;
+  float halfHeight = 0.5f;
 
   float vertices[][3] = {
-      {pos.x - halfLength, pos.y - halfWidth + 2.0f, pos.z - halfHeight},  // 0
-      {pos.x + halfLength, pos.y - halfWidth + 2.0f, pos.z - halfHeight},  // 1
-      {pos.x + halfLength, pos.y + halfWidth + 2.0f, pos.z - halfHeight},  // 2
-      {pos.x - halfLength, pos.y + halfWidth + 2.0f, pos.z - halfHeight},  // 3
-      {pos.x - halfLength, pos.y - halfWidth + 2.0f, pos.z + halfHeight},  // 4
-      {pos.x + halfLength, pos.y - halfWidth + 2.0f, pos.z + halfHeight},  // 5
-      {pos.x + halfLength, pos.y + halfWidth + 2.0f, pos.z + halfHeight},  // 6
-      {pos.x - halfLength, pos.y + halfWidth + 2.0f, pos.z + halfHeight}   // 7
+      {pos.x - halfLength, pos.y - halfWidth, pos.z - halfHeight},  // 0
+      {pos.x + halfLength, pos.y - halfWidth, pos.z - halfHeight},  // 1
+      {pos.x + halfLength, pos.y + halfWidth, pos.z - halfHeight},  // 2
+      {pos.x - halfLength, pos.y + halfWidth, pos.z - halfHeight},  // 3
+      {pos.x - halfLength, pos.y - halfWidth, pos.z + halfHeight},  // 4
+      {pos.x + halfLength, pos.y - halfWidth, pos.z + halfHeight},  // 5
+      {pos.x + halfLength, pos.y + halfWidth, pos.z + halfHeight},  // 6
+      {pos.x - halfLength, pos.y + halfWidth, pos.z + halfHeight}   // 7
   };
 
   int faces[][4] = {
@@ -194,6 +193,15 @@ int main() {
   // Store camera as glfw global variable for callbasks use
   glfwSetWindowUserPointer(window, &camera);
 
+  // read setting file
+  std::ifstream set_file("setting.txt");
+  if (set_file.is_open()) {
+    while (set_file) {
+      std::string line;
+      std::getline(set_file, line);
+    }
+  }
+
   // Main rendering loop
   while (!glfwWindowShouldClose(window)) {
     // Polling events.
@@ -253,14 +261,29 @@ int main() {
       wing_rot = 0.0;
     }
 
+    
+
+    if (isClick) {
+      glfwGetCursorPos(window, &x, &y);
+      rot_y = (float)(x - last_x) * 0.07f;
+      rot_x = (float)(y - last_y) * 0.07f;
+    } else {
+      pre_rot_x += rot_x;
+      pre_rot_y += rot_y;
+      rot_x = 0.0f;
+      rot_y = 0.0f;
+    }
 
     glPushMatrix();
-    glRotated(-wing_rot, 0.0, 0.0, 1.0);
-    for (int i = 0; i < 3; i++) {
-      for (int j = 0; j < 3; j++) {
-        for (int k = 0; k < 3; k++) {
+    glTranslated(0.0, 4.0, -1.0);
+    glRotatef(normalRot(rot_x + pre_rot_x), 1.0, 0.0, 0.0);
+    glRotatef(normalRot(rot_y + pre_rot_y), 0.0, 1.0, 0.0);
+    
+    for (int i = -1; i < 2; i++) {
+      for (int j = -1; j < 2; j++) {
+        for (int k = -1; k < 2; k++) {
           glColor3f(WHITE);
-          drawCube(glm::vec3(i * 0.65f, j * 0.65f, k * 0.65f));
+          drawCube(glm::vec3(i * 1.1f, j * 1.1f, k * 1.1f));
         }
       }
     }
