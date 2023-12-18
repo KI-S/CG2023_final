@@ -12,6 +12,7 @@
 #include "camera.h"
 #include "opengl_context.h"
 #include "utils.h"
+#include "minesweeper.h"
 
 #include <iostream>
 #include <fstream>
@@ -183,7 +184,23 @@ void render_cube(glm::vec3 pos) {
   drawCube(pos);
 }
 
-int main() {
+int main() { 
+  Minesweeper game = Minesweeper(3, 3, 3, 1);
+  game.flagTile(0, 1, 0);
+  game.flagTile(1, 1, 0);
+  game.flagTile(1, 0, 0);
+  game.flagTile(0, 1, 1);
+  game.flagTile(1, 1, 1);
+  game.flagTile(1, 0, 1);
+  game.flagTile(0, 0, 1);
+  game.selectTile(0, 0, 0);
+  game.printBoard();
+  game.printActualBoard();
+  game.printStatus();
+  return 0; 
+}
+
+int submain() {
   initOpenGL();
   GLFWwindow* window = OpenGLContext::getWindow();
 
