@@ -3,6 +3,7 @@ project(HW1 C CXX)
 set(HW1_SOURCE
   ${HW1_SOURCE_DIR}/camera.cpp
   ${HW1_SOURCE_DIR}/opengl_context.cpp
+  ${HW1_SOURCE_DIR}/minesweeper.cpp
   ${HW1_SOURCE_DIR}/main.cpp
 )
 
@@ -10,6 +11,7 @@ set(HW1_HEADER
   ${HW1_SOURCE_DIR}/../include/camera.h
   ${HW1_SOURCE_DIR}/../include/opengl_context.h
   ${HW1_SOURCE_DIR}/../include/utils.h
+  ${HW1_SOURCE_DIR}/../include/minesweeper.h
 )
 add_executable(HW1 ${HW1_SOURCE} ${HW1_HEADER})
 target_include_directories(HW1 PRIVATE ${HW1_SOURCE_DIR}/../include)

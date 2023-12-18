@@ -29,6 +29,9 @@
     <ClCompile Include="..\src\camera.cpp">
       <Filter>來源檔案</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\minesweeper.cpp">
+      <Filter>來源檔案</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\extern\glad\include\glad\gl.h">
@@ -51,6 +54,9 @@
     </ClInclude>
     <ClInclude Include="..\extern\glm\glm\glm.hpp">
       <Filter>標頭檔\glm</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\minesweeper.h">
+      <Filter>標頭檔</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

@@ -193,6 +193,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\src\camera.cpp" />
+    <ClCompile Include="..\src\minesweeper.cpp" />
     <ClCompile Include="..\src\opengl_context.cpp" />
     <ClCompile Include="..\src\main.cpp" />
   </ItemGroup>
@@ -202,6 +203,7 @@
     <ClInclude Include="..\extern\glfw\include\GLFW\glfw3native.h" />
     <ClInclude Include="..\extern\glm\glm\glm.hpp" />
     <ClInclude Include="..\include\camera.h" />
+    <ClInclude Include="..\include\minesweeper.h" />
     <ClInclude Include="..\include\opengl_context.h" />
     <ClInclude Include="..\include\utils.h" />
   </ItemGroup>
