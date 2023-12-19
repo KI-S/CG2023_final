@@ -43,6 +43,8 @@ bool isClick;
 double last_x, last_y;
 double x, y;
 float rot_x = 0.0f, rot_y = 0.0f, pre_rot_x = 0.0f, pre_rot_y = 0.0f;
+double mouseX = 0.0;
+double mouseY = 0.0;
 
 // init rotation degree and position information
 float rot = 0.0f;
@@ -182,9 +184,21 @@ void light() {
   glLightfv(GL_LIGHT0, GL_AMBIENT, light_ambient);
 }
 
-void render_cube(glm::vec3 pos) { 
+void render_mouse(GLFWwindow* window) { 
+  double x, y;
+  glfwGetCursorPos(window, &x, &y);
+  int width, height;
+  glfwGetWindowSize(window, &width, &height);
+  std::cout << width << ", " << height << "\n" << std::endl;
+  x = 2.0 * x / width - 1.0;
+  y = 1.0 - 2.0 * y / height;
   glColor3f(RED);
-  drawCube(pos);
+  glBegin(GL_QUADS);
+  glVertex3d(x + 3.0, y, 10.0);
+  glVertex3d(x - 3.0, y, 10.0);
+  glVertex3d(x, y + 3.0, 10.0);
+  glVertex3d(x, y - 3.0, 10.0);
+  glEnd();
 }
 
 /* int main() { 
@@ -248,8 +262,8 @@ int main() {
 #endif
     if (isClick) {
       glfwGetCursorPos(window, &x, &y);
-      rot_y = normalRot((float)(x - last_x) * 0.07f);
-      rot_x = normalRot((float)(y - last_y) * 0.07f);
+      rot_y = normalRot((float)(x - last_x) * 0.1f);
+      rot_x = normalRot((float)(y - last_y) * 0.1f);
     } else {
       pre_rot_x += rot_x;
       pre_rot_y += rot_y;
@@ -259,18 +273,18 @@ int main() {
       rot_y = 0.0f;
     }
 
+    //glPushMatrix();
+    render_mouse(window);
+    //glPopMatrix();
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
     if ((pre_rot_x >= 90.0f && pre_rot_x < 270.0f) || (pre_rot_x <= -90.0f && pre_rot_x > -270.0f)) {
       rot_y = -rot_y;
-      //pre_rot_y -= 180.0f;
     }
 
     glTranslated(0.0, 4.0, -1.0);
 
     glRotatef(normalRot(rot_x + pre_rot_x), 1.0, 0.0, 0.0);
     glRotatef(normalRot(rot_y + pre_rot_y), 0.0, 1.0, 0.0);
-
-    //glRotatef(pre_rot_x, 1.0, 0.0, 0.0);
-    //glRotatef(pre_rot_y, 0.0, 1.0, 0.0);
 
     for (int i = -1; i < 2; i++) {
       for (int j = -1; j < 2; j++) {
@@ -280,7 +294,6 @@ int main() {
         }
       }
     }
-
 #ifdef __APPLE__
     // Some platform need explicit glFlush
     glFlush();
