@@ -2,7 +2,6 @@
 #include <memory>
 #include <vector>
 #include <iostream>
-
 #include <GLFW/glfw3.h>
 #define GLAD_GL_IMPLEMENTATION
 #include <glad/gl.h>
@@ -45,6 +44,7 @@ double x, y;
 float rot_x = 0.0f, rot_y = 0.0f, pre_rot_x = 0.0f, pre_rot_y = 0.0f;
 double mouseX = 0.0;
 double mouseY = 0.0;
+int width, height;
 
 // init rotation degree and position information
 float rot = 0.0f;
@@ -92,6 +92,66 @@ void keyCallback(GLFWwindow* window, int key, int, int action, int mods) {
   } else if (key == GLFW_KEY_RIGHT && action == GLFW_RELEASE) {
     isRight = false;
   }
+}
+
+// Function that takes mouse position on screen and return ray in world coords
+/*glm::vec3 GetRayFromMouse(Camera camera, double mouseX, double mouseY) {
+  glm::vec2 ray_nds = glm::vec2(mouseX, mouseY);
+  glm::vec4 ray_clip = glm::vec4(ray_nds.x, ray_nds.y, -1.0f, 1.0f);
+  glm::mat4 invProjMat = glm::inverse(camera.Camera::getProjection());
+  glm::vec4 eyeCoords = invProjMat * ray_clip;
+  eyeCoords = glm::vec4(eyeCoords.x, eyeCoords.y, -1.0f, 0.0f);
+  glm::mat4 invViewMat = glm::inverse(camera.Camera::getView());
+  glm::vec4 rayWorld = invViewMat * eyeCoords;
+  glm::vec3 rayDirection = glm::normalize(glm::vec3(rayWorld));
+
+  return rayDirection;
+}*/
+glm::vec3 GetRayFromMouse(Camera camera, double mouseX, double mouseY) {
+  glm::vec4 ray_clip =
+      glm::vec4((mouseX / width) * 2.0f - 1.0f, 1.0f - (mouseY / height) * 2.0f, -1.0f, 1.0f);
+  glm::vec4 ray_eye = glm::inverse(camera.getProjection()) * ray_clip;
+  ray_eye = glm::vec4(ray_eye.x, ray_eye.y, -1.0f, 0.0f);
+  glm::vec4 ray_world = glm::inverse(camera.getView()) * ray_eye;
+  glm::vec3 ray_direction = glm::normalize(glm::vec3(ray_world));
+  return ray_direction;
+}
+
+bool RayIntersectsBoundingBox(const glm::vec3 rayOrigin, const glm::vec3 rayDirection, const glm::vec3 boxCenter,
+                              const glm::vec3 boxHalfSize) {
+  glm::vec3 min = boxCenter - boxHalfSize;
+  glm::vec3 max = boxCenter + boxHalfSize;
+
+  glm::vec3 invDirection = 1.0f / rayDirection;
+
+  glm::vec3 t1 = (min - rayOrigin) * invDirection;
+  glm::vec3 t2 = (max - rayOrigin) * invDirection;
+
+  glm::vec3 tMin = glm::min(t1, t2);
+  glm::vec3 tMax = glm::max(t1, t2);
+
+  float tEnter = glm::max(glm::max(tMin.x, tMin.y), tMin.z);
+  float tExit = glm::min(glm::min(tMax.x, tMax.y), tMax.z);
+
+  return tEnter <= tExit && tExit >= 0.0f;
+}
+
+void cursor_position_callback(double height, double width, glm::mat4 projection, glm::mat4 view, double* xpos, double* ypos) {
+  float screenX = *xpos;
+  float screenY = height - *ypos;
+
+  glm::mat4 inverseProjection = glm::inverse(projection);
+  glm::mat4 inverseView = glm::inverse(view);
+
+  glm::vec4 screenPos((screenX / width - 0.5f ) * 2.0f, (screenY / height - 0.5f ) * 2.0f, -1.0f, 0.0f);
+
+  glm::vec4 worldPos = inverseProjection * screenPos;
+  //worldPos /= worldPos.w;
+  worldPos = inverseView * worldPos;
+  //worldPos /= worldPos.w;
+  *xpos = worldPos.x * 8.5;
+  *ypos = worldPos.y * 8.5;
+  //std::cout << "World coordinates: (" << worldPos.x << ", " << worldPos.y << ", " << worldPos.z << ")" << std::endl;
 }
 
 void mouse_callback(GLFWwindow* window, int button, int action, int mods) {
@@ -184,22 +244,6 @@ void light() {
   glLightfv(GL_LIGHT0, GL_AMBIENT, light_ambient);
 }
 
-void render_mouse(GLFWwindow* window) { 
-  double x, y;
-  glfwGetCursorPos(window, &x, &y);
-  int width, height;
-  glfwGetWindowSize(window, &width, &height);
-  std::cout << width << ", " << height << "\n" << std::endl;
-  x = 2.0 * x / width - 1.0;
-  y = 1.0 - 2.0 * y / height;
-  glColor3f(RED);
-  glBegin(GL_QUADS);
-  glVertex3d(x + 3.0, y, 10.0);
-  glVertex3d(x - 3.0, y, 10.0);
-  glVertex3d(x, y + 3.0, 10.0);
-  glVertex3d(x, y - 3.0, 10.0);
-  glEnd();
-}
 
 /* int main() { 
   Minesweeper game = Minesweeper(3, 3, 3, 1);
@@ -220,9 +264,12 @@ void render_mouse(GLFWwindow* window) {
 int main() {
   initOpenGL();
   GLFWwindow* window = OpenGLContext::getWindow();
+  glfwGetWindowSize(window, &width, &height);
+
+  glm::vec3 ray_direction = {0.0, 0.0, 0.0};
 
   // Init Camera helper
-  Camera camera(glm::vec3(0, 5, 10));
+  Camera camera(glm::vec3(0, 0, 0));
   camera.initialize(OpenGLContext::getAspectRatio());
   // Store camera as glfw global variable for callbasks use
   glfwSetWindowUserPointer(window, &camera);
@@ -235,6 +282,12 @@ int main() {
       std::getline(set_file, line);
     }
   }
+
+  // Initisl mineswapper
+  enum TileStatus : int8_t { Unvisit, Flagged, Visited };
+  Minesweeper game = Minesweeper(3, 3, 3, 1);
+  std::vector<std::vector<std::vector<std::int8_t>>> board = game.getBoard();
+  //std::vector<std::vector<std::vector<int>>> status = game.getStatus();
 
   // Main rendering loop
   while (!glfwWindowShouldClose(window)) {
@@ -253,17 +306,25 @@ int main() {
     // ModelView Matrix
     glMatrixMode(GL_MODELVIEW);
     glLoadMatrixf(camera.getViewMatrix());
-
+    
 #ifndef DISABLE_LIGHT
     glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
     glClear(GL_COLOR_BUFFER_BIT);
     glClearDepth(1.0f);
     light();
 #endif
+    glm::vec3 half_size = {0.5, 0.5, 0.5};
+    glfwGetCursorPos(window, &mouseX, &mouseY);
+    cursor_position_callback(height, width, camera.getProjection(), camera.getView(), &mouseX, &mouseY);
+    std::cout << mouseX << ", " << mouseY << "\n" << std::endl;
+    //mouseX = mouseX / width;
+    ray_direction = GetRayFromMouse(camera, mouseX, mouseY);
     if (isClick) {
       glfwGetCursorPos(window, &x, &y);
       rot_y = normalRot((float)(x - last_x) * 0.1f);
       rot_x = normalRot((float)(y - last_y) * 0.1f);
+
+      //ray_direction = GetRayFromMouse(camera, mouseX, mouseY);
     } else {
       pre_rot_x += rot_x;
       pre_rot_y += rot_y;
@@ -274,22 +335,62 @@ int main() {
     }
 
     //glPushMatrix();
-    render_mouse(window);
+    //glTranslated(0.0, 0.0, -1.0);
+    
     //glPopMatrix();
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
     if ((pre_rot_x >= 90.0f && pre_rot_x < 270.0f) || (pre_rot_x <= -90.0f && pre_rot_x > -270.0f)) {
       rot_y = -rot_y;
     }
-
-    glTranslated(0.0, 4.0, -1.0);
+    
+    glTranslated(0.0, 0.0, -10.0);
 
     glRotatef(normalRot(rot_x + pre_rot_x), 1.0, 0.0, 0.0);
     glRotatef(normalRot(rot_y + pre_rot_y), 0.0, 1.0, 0.0);
 
+    glPushMatrix();
+    glTranslated(0.0, 0.0, 1.6);
+    glColor3d(RED);
+    glBegin(GL_LINES);
+    glVertex3d(mouseX, mouseY, 0.0);
+    glVertex3d(mouseX, mouseY + 10.0, 0.0);
+    glEnd();
+    glPopMatrix();
+    int nearest_id = -1000;
+    float minDistance = std::numeric_limits<float>::max();
+
+    for (int i = -1; i < 2; ++i) {
+      for (int j = -1; j < 2; ++j) {
+        for (int k = -1; k < 2; ++k) {
+          // Calculate cube's position
+          glm::vec3 cubePos = glm::vec3(i * 1.1f, j * 1.1f, k * 1.1f);
+          float distance = std::numeric_limits<float>::max();
+          // Perform ray-box intersection test
+          //std::cout << ray_direction.x << ", " << ray_direction.y << ", " << ray_direction.z << "\n" << std::endl;
+          if (RayIntersectsBoundingBox(camera.getPos(), ray_direction, cubePos, half_size)) {
+            // Calculate distance from camera to the cube
+            distance = glm::distance(camera.getPos(), cubePos);
+
+            // Check if this is the closest cube so far
+            if (distance < minDistance) {
+              minDistance = distance;
+              nearest_id = i * 100 + j * 10 + k;
+              //std::cout << nearest_id << "\n" << std::endl;
+            }
+          }
+        }
+      }
+    }
+
+
     for (int i = -1; i < 2; i++) {
       for (int j = -1; j < 2; j++) {
         for (int k = -1; k < 2; k++) {
-          glColor3f(WHITE);
+          if ((i * 100 + j * 10 + k) != nearest_id) {
+            glColor3f(WHITE);
+          } else {
+            glColor3f(YELLOW);
+          }
           drawCube(glm::vec3(i * 1.1f, j * 1.1f, k * 1.1f));
         }
       }
