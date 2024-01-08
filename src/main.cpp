@@ -98,26 +98,11 @@ double getDistance(const glm::vec3 rayOrigin, const glm::vec3 rayEnd, const glm:
                               double boxHalfSize) {
   double minDistance = std::numeric_limits<double>::max();
 
-  //double front_face_z = boxCenter.z + boxHalfSize;
-  //double back_face_z = boxCenter.z - boxHalfSize;
   double min_x = boxCenter.x - boxHalfSize;
   double max_x = boxCenter.x + boxHalfSize;
   double min_y = boxCenter.y - boxHalfSize;
   double max_y = boxCenter.y + boxHalfSize;
 
-  //double start_x = rayOrigin.x + (front_face_z - rayOrigin.z) / rayDirection.z * rayDirection.x;
-  //double start_y = rayOrigin.y + (front_face_z - rayOrigin.z) / rayDirection.z * rayDirection.x;
-  
-  //double end_x = rayOrigin.x + (back_face_z - rayOrigin.z) / rayDirection.z * rayDirection.x;
-  //double end_y = rayOrigin.y + (back_face_z - rayOrigin.z) / rayDirection.z * rayDirection.x;
-
-  /* if (start_x <= boxCenter.x + boxHalfSize && start_x >= boxCenter.x - boxHalfSize &&
-      start_y <= boxCenter.y + boxHalfSize && start_y >= boxCenter.y - boxHalfSize) {
-    minDistance = glm::distance(rayOrigin, boxCenter);
-  } else if (end_x <= boxCenter.x + boxHalfSize && end_x >= boxCenter.x - boxHalfSize &&
-             end_y <= boxCenter.y + boxHalfSize && end_y >= boxCenter.y - boxHalfSize) {
-    minDistance = glm::distance(rayOrigin, boxCenter);
-  }*/
   if ((rayOrigin.x < min_x && rayEnd.x < min_x) || (rayOrigin.y < min_y && rayEnd.y < min_y) ||
       (rayOrigin.x > max_x && rayEnd.x > max_x) || (rayOrigin.y > max_y && rayEnd.y > max_y)) {
     return minDistance;
@@ -139,8 +124,8 @@ void cursor_position_callback(double height, double width, glm::mat4 projection,
   //worldPos /= worldPos.w;
   worldPos = inverseView * worldPos;
   //worldPos /= worldPos.w;
-  *xpos = worldPos.x * 8.5;
-  *ypos = worldPos.y * 8.5;
+  *xpos = worldPos.x * 8.4;
+  *ypos = worldPos.y * 8.4;
   //std::cout << "World coordinates: (" << worldPos.x << ", " << worldPos.y << ", " << worldPos.z << ")" << std::endl;
 }
 
@@ -213,6 +198,143 @@ void drawCube(glm::vec3 pos) {
   glEnd();
 }
 
+void drawNum(glm::vec3 pos, std::int8_t num) {
+  float lines[][4][3] = {
+      {{pos.x + 0.3, pos.y + 0.5, pos.z},
+       {pos.x - 0.3, pos.y + 0.5, pos.z},
+       {pos.x - 0.3, pos.y + 0.4, pos.z},
+       {pos.x + 0.3, pos.y + 0.4, pos.z}},
+      {{pos.x - 0.2, pos.y + 0.5, pos.z},
+       {pos.x - 0.3, pos.y + 0.5, pos.z},
+       {pos.x - 0.3, pos.y, pos.z},
+       {pos.x - 0.2, pos.y, pos.z}},
+      {{pos.x - 0.2, pos.y, pos.z},
+       {pos.x - 0.3, pos.y, pos.z},
+       {pos.x - 0.3, pos.y - 0.5, pos.z},
+       {pos.x - 0.2, pos.y - 0.5, pos.z}},
+      {{pos.x + 0.3, pos.y + 0.05, pos.z},
+       {pos.x - 0.3, pos.y + 0.05, pos.z},
+       {pos.x - 0.3, pos.y - 0.05, pos.z},
+       {pos.x + 0.3, pos.y - 0.05, pos.z}},
+      {{pos.x + 0.3, pos.y - 0.4, pos.z},
+       {pos.x - 0.3, pos.y - 0.4, pos.z},
+       {pos.x - 0.3, pos.y - 0.5, pos.z},
+       {pos.x + 0.3, pos.y - 0.5, pos.z}},
+      {{pos.x + 0.3, pos.y + 0.5, pos.z},
+       {pos.x + 0.2, pos.y + 0.5, pos.z},
+       {pos.x + 0.2, pos.y, pos.z},
+       {pos.x + 0.3, pos.y, pos.z}},
+      {{pos.x + 0.3, pos.y, pos.z},
+       {pos.x + 0.2, pos.y, pos.z},
+       {pos.x + 0.2, pos.y - 0.5, pos.z},
+       {pos.x + 0.3, pos.y - 0.5, pos.z}},
+  };
+
+  glBegin(GL_QUADS);
+  if (num == 1) {
+    for (int i = 0; i < 4; i++) {
+      glVertex3f(lines[5][i][0], lines[5][i][1], lines[5][i][2]);
+    }
+    for (int i = 0; i < 4; i++) {
+      glVertex3f(lines[6][i][0], lines[6][i][1], lines[6][i][2]);
+    }
+  } else if (num == 2) {
+    for (int i = 0; i < 4; i++) {
+      glVertex3f(lines[0][i][0], lines[0][i][1], lines[0][i][2]);
+    }
+    for (int i = 0; i < 4; i++) {
+      glVertex3f(lines[5][i][0], lines[5][i][1], lines[5][i][2]);
+    }
+    for (int i = 0; i < 4; i++) {
+      glVertex3f(lines[3][i][0], lines[3][i][1], lines[3][i][2]);
+    }
+    for (int i = 0; i < 4; i++) {
+      glVertex3f(lines[2][i][0], lines[2][i][1], lines[2][i][2]);
+    }
+    for (int i = 0; i < 4; i++) {
+      glVertex3f(lines[4][i][0], lines[4][i][1], lines[4][i][2]);
+    }
+  } else if (num == 3) {
+    for (int i = 0; i < 4; i++) {
+      glVertex3f(lines[0][i][0], lines[0][i][1], lines[0][i][2]);
+    }
+    for (int i = 0; i < 4; i++) {
+      glVertex3f(lines[5][i][0], lines[5][i][1], lines[5][i][2]);
+    }
+    for (int i = 0; i < 4; i++) {
+      glVertex3f(lines[6][i][0], lines[6][i][1], lines[6][i][2]);
+    }
+    for (int i = 0; i < 4; i++) {
+      glVertex3f(lines[4][i][0], lines[4][i][1], lines[4][i][2]);
+    }
+    for (int i = 0; i < 4; i++) {
+      glVertex3f(lines[3][i][0], lines[3][i][1], lines[3][i][2]);
+    }
+  } else if (num == 4) {
+    for (int i = 0; i < 4; i++) {
+      glVertex3f(lines[1][i][0], lines[1][i][1], lines[1][i][2]);
+    }
+    for (int i = 0; i < 4; i++) {
+      glVertex3f(lines[3][i][0], lines[3][i][1], lines[3][i][2]);
+    }
+    for (int i = 0; i < 4; i++) {
+      glVertex3f(lines[6][i][0], lines[6][i][1], lines[6][i][2]);
+    }
+    for (int i = 0; i < 4; i++) {
+      glVertex3f(lines[5][i][0], lines[5][i][1], lines[5][i][2]);
+    }
+  } else if (num == 5) {
+    for (int i = 0; i < 4; i++) {
+      glVertex3f(lines[0][i][0], lines[0][i][1], lines[0][i][2]);
+    }
+    for (int i = 0; i < 4; i++) {
+      glVertex3f(lines[1][i][0], lines[1][i][1], lines[1][i][2]);
+    }
+    for (int i = 0; i < 4; i++) {
+      glVertex3f(lines[3][i][0], lines[3][i][1], lines[3][i][2]);
+    }
+    for (int i = 0; i < 4; i++) {
+      glVertex3f(lines[6][i][0], lines[6][i][1], lines[6][i][2]);
+    }
+    for (int i = 0; i < 4; i++) {
+      glVertex3f(lines[4][i][0], lines[4][i][1], lines[4][i][2]);
+    }
+  } else if (num == 6) {
+    for (int i = 0; i < 4; i++) {
+      glVertex3f(lines[0][i][0], lines[0][i][1], lines[0][i][2]);
+    }
+    for (int i = 0; i < 4; i++) {
+      glVertex3f(lines[5][i][0], lines[5][i][1], lines[5][i][2]);
+    }
+    for (int i = 0; i < 4; i++) {
+      glVertex3f(lines[6][i][0], lines[6][i][1], lines[6][i][2]);
+    }
+    for (int i = 0; i < 4; i++) {
+      glVertex3f(lines[4][i][0], lines[4][i][1], lines[4][i][2]);
+    }
+    for (int i = 0; i < 4; i++) {
+      glVertex3f(lines[2][i][0], lines[2][i][1], lines[2][i][2]);
+    }
+    for (int i = 0; i < 4; i++) {
+      glVertex3f(lines[3][i][0], lines[3][i][1], lines[3][i][2]);
+    }
+  } else if (num == 7) {
+    for (int i = 0; i < 4; i++) {
+      glVertex3f(lines[1][i][0], lines[1][i][1], lines[1][i][2]);
+    }
+    for (int i = 0; i < 4; i++) {
+      glVertex3f(lines[0][i][0], lines[0][i][1], lines[0][i][2]);
+    }
+    for (int i = 0; i < 4; i++) {
+      glVertex3f(lines[5][i][0], lines[5][i][1], lines[5][i][2]);
+    }
+    for (int i = 0; i < 4; i++) {
+      glVertex3f(lines[6][i][0], lines[6][i][1], lines[6][i][2]);
+    }
+  }
+  glEnd();
+}
+
 void light() {
   GLfloat light_specular[] = {0.6f, 0.6f, 0.6f, 1};
   GLfloat light_diffuse[] = {0.6f, 0.6f, 0.6f, 1};
@@ -277,7 +399,7 @@ int main() {
   enum TileStatus : int8_t { Unvisit, Flagged, Visited };
   Minesweeper game = Minesweeper(3, 3, 3, 1);
   std::vector<std::vector<std::vector<std::int8_t>>> board = game.getBoard();
-  //std::vector<std::vector<std::vector<int>>> status = game.getStatus();
+  std::vector<std::vector<std::vector<Minesweeper::TileStatus>>> status = game.getStatus();
 
   // Main rendering loop
   while (!glfwWindowShouldClose(window)) {
@@ -306,7 +428,7 @@ int main() {
     glm::vec3 half_size = {0.5, 0.5, 0.5};
     glfwGetCursorPos(window, &mouseX, &mouseY);
     cursor_position_callback(height, width, camera.getProjection(), camera.getView(), &mouseX, &mouseY);
-    std::cout << mouseX << ", " << mouseY << "\n" << std::endl;
+    //std::cout << mouseX << ", " << mouseY << "\n" << std::endl;
 
     if (isClick) {
       glfwGetCursorPos(window, &x, &y);
@@ -358,6 +480,7 @@ int main() {
         for (int k = -1; k < 2; ++k) {
           // Calculate cube's position
           glm::vec3 cubePos = glm::vec3(i * 1.1f, j * 1.1f, k * 1.1f);
+
           double distance = getDistance(glm::vec3(start.x, start.y, start.z),
                                         glm::vec3(end.x, end.y, end.z), cubePos, 0.5);
           if (distance < minDistance) {
@@ -375,10 +498,20 @@ int main() {
             glColor3f(WHITE);
           } else {
             glColor3f(YELLOW);
+
           }
           drawCube(glm::vec3(i * 1.1f, j * 1.1f, k * 1.1f));
         }
       }
+    }
+
+    for (std::int8_t i = -3; i < 4; i++) {
+      glPushMatrix();
+      glRotatef(normalRot(-(rot_y + pre_rot_y)), 0.0, 1.0, 0.0);
+      glRotatef(normalRot(-(rot_x + pre_rot_x)), 1.0, 0.0, 0.0);
+      glColor3f(YELLOW);
+      drawNum(glm::vec3(i * 1.1f, 3.0f, 1.1f), (i + 4));
+      glPopMatrix();
     }
 #ifdef __APPLE__
     // Some platform need explicit glFlush
