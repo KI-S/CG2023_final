@@ -94,46 +94,36 @@ void keyCallback(GLFWwindow* window, int key, int, int action, int mods) {
   }
 }
 
-// Function that takes mouse position on screen and return ray in world coords
-/*glm::vec3 GetRayFromMouse(Camera camera, double mouseX, double mouseY) {
-  glm::vec2 ray_nds = glm::vec2(mouseX, mouseY);
-  glm::vec4 ray_clip = glm::vec4(ray_nds.x, ray_nds.y, -1.0f, 1.0f);
-  glm::mat4 invProjMat = glm::inverse(camera.Camera::getProjection());
-  glm::vec4 eyeCoords = invProjMat * ray_clip;
-  eyeCoords = glm::vec4(eyeCoords.x, eyeCoords.y, -1.0f, 0.0f);
-  glm::mat4 invViewMat = glm::inverse(camera.Camera::getView());
-  glm::vec4 rayWorld = invViewMat * eyeCoords;
-  glm::vec3 rayDirection = glm::normalize(glm::vec3(rayWorld));
+double getDistance(const glm::vec3 rayOrigin, const glm::vec3 rayEnd, const glm::vec3 boxCenter,
+                              double boxHalfSize) {
+  double minDistance = std::numeric_limits<double>::max();
 
-  return rayDirection;
-}*/
-glm::vec3 GetRayFromMouse(Camera camera, double mouseX, double mouseY) {
-  glm::vec4 ray_clip =
-      glm::vec4((mouseX / width) * 2.0f - 1.0f, 1.0f - (mouseY / height) * 2.0f, -1.0f, 1.0f);
-  glm::vec4 ray_eye = glm::inverse(camera.getProjection()) * ray_clip;
-  ray_eye = glm::vec4(ray_eye.x, ray_eye.y, -1.0f, 0.0f);
-  glm::vec4 ray_world = glm::inverse(camera.getView()) * ray_eye;
-  glm::vec3 ray_direction = glm::normalize(glm::vec3(ray_world));
-  return ray_direction;
-}
+  //double front_face_z = boxCenter.z + boxHalfSize;
+  //double back_face_z = boxCenter.z - boxHalfSize;
+  double min_x = boxCenter.x - boxHalfSize;
+  double max_x = boxCenter.x + boxHalfSize;
+  double min_y = boxCenter.y - boxHalfSize;
+  double max_y = boxCenter.y + boxHalfSize;
 
-bool RayIntersectsBoundingBox(const glm::vec3 rayOrigin, const glm::vec3 rayDirection, const glm::vec3 boxCenter,
-                              const glm::vec3 boxHalfSize) {
-  glm::vec3 min = boxCenter - boxHalfSize;
-  glm::vec3 max = boxCenter + boxHalfSize;
+  //double start_x = rayOrigin.x + (front_face_z - rayOrigin.z) / rayDirection.z * rayDirection.x;
+  //double start_y = rayOrigin.y + (front_face_z - rayOrigin.z) / rayDirection.z * rayDirection.x;
+  
+  //double end_x = rayOrigin.x + (back_face_z - rayOrigin.z) / rayDirection.z * rayDirection.x;
+  //double end_y = rayOrigin.y + (back_face_z - rayOrigin.z) / rayDirection.z * rayDirection.x;
 
-  glm::vec3 invDirection = 1.0f / rayDirection;
-
-  glm::vec3 t1 = (min - rayOrigin) * invDirection;
-  glm::vec3 t2 = (max - rayOrigin) * invDirection;
-
-  glm::vec3 tMin = glm::min(t1, t2);
-  glm::vec3 tMax = glm::max(t1, t2);
-
-  float tEnter = glm::max(glm::max(tMin.x, tMin.y), tMin.z);
-  float tExit = glm::min(glm::min(tMax.x, tMax.y), tMax.z);
-
-  return tEnter <= tExit && tExit >= 0.0f;
+  /* if (start_x <= boxCenter.x + boxHalfSize && start_x >= boxCenter.x - boxHalfSize &&
+      start_y <= boxCenter.y + boxHalfSize && start_y >= boxCenter.y - boxHalfSize) {
+    minDistance = glm::distance(rayOrigin, boxCenter);
+  } else if (end_x <= boxCenter.x + boxHalfSize && end_x >= boxCenter.x - boxHalfSize &&
+             end_y <= boxCenter.y + boxHalfSize && end_y >= boxCenter.y - boxHalfSize) {
+    minDistance = glm::distance(rayOrigin, boxCenter);
+  }*/
+  if ((rayOrigin.x < min_x && rayEnd.x < min_x) || (rayOrigin.y < min_y && rayEnd.y < min_y) ||
+      (rayOrigin.x > max_x && rayEnd.x > max_x) || (rayOrigin.y > max_y && rayEnd.y > max_y)) {
+    return minDistance;
+  }
+  minDistance = glm::distance(rayOrigin, boxCenter);
+  return minDistance;
 }
 
 void cursor_position_callback(double height, double width, glm::mat4 projection, glm::mat4 view, double* xpos, double* ypos) {
@@ -317,8 +307,7 @@ int main() {
     glfwGetCursorPos(window, &mouseX, &mouseY);
     cursor_position_callback(height, width, camera.getProjection(), camera.getView(), &mouseX, &mouseY);
     std::cout << mouseX << ", " << mouseY << "\n" << std::endl;
-    //mouseX = mouseX / width;
-    ray_direction = GetRayFromMouse(camera, mouseX, mouseY);
+
     if (isClick) {
       glfwGetCursorPos(window, &x, &y);
       rot_y = normalRot((float)(x - last_x) * 0.1f);
@@ -349,11 +338,16 @@ int main() {
     glRotatef(normalRot(rot_y + pre_rot_y), 0.0, 1.0, 0.0);
 
     glPushMatrix();
-    glTranslated(0.0, 0.0, 1.6);
+    //glTranslated(0.0, 0.0, 1.6);
+    glm::mat4 trans(1.0f);
+    trans = glm::rotate(trans, glm::radians(-normalRot(rot_y + pre_rot_y)), glm::vec3(0.0, 1.0, 0.0));
+    trans = glm::rotate(trans, glm::radians(-normalRot(rot_x + pre_rot_x)), glm::vec3(1.0, 0.0, 0.0));
+    glm::vec4 start = (trans * glm::vec4(mouseX, mouseY, 5.0, 1.0));
+    glm::vec4 end = (trans * glm::vec4(mouseX, mouseY, -5.0, 1.0));
     glColor3d(RED);
     glBegin(GL_LINES);
-    glVertex3d(mouseX, mouseY, 0.0);
-    glVertex3d(mouseX, mouseY + 10.0, 0.0);
+    glVertex3d(start.x, start.y, start.z);
+    glVertex3d(end.x, end.y, end.z);
     glEnd();
     glPopMatrix();
     int nearest_id = -1000;
@@ -364,24 +358,15 @@ int main() {
         for (int k = -1; k < 2; ++k) {
           // Calculate cube's position
           glm::vec3 cubePos = glm::vec3(i * 1.1f, j * 1.1f, k * 1.1f);
-          float distance = std::numeric_limits<float>::max();
-          // Perform ray-box intersection test
-          //std::cout << ray_direction.x << ", " << ray_direction.y << ", " << ray_direction.z << "\n" << std::endl;
-          if (RayIntersectsBoundingBox(camera.getPos(), ray_direction, cubePos, half_size)) {
-            // Calculate distance from camera to the cube
-            distance = glm::distance(camera.getPos(), cubePos);
-
-            // Check if this is the closest cube so far
-            if (distance < minDistance) {
-              minDistance = distance;
-              nearest_id = i * 100 + j * 10 + k;
-              //std::cout << nearest_id << "\n" << std::endl;
-            }
+          double distance = getDistance(glm::vec3(start.x, start.y, start.z),
+                                        glm::vec3(end.x, end.y, end.z), cubePos, 0.5);
+          if (distance < minDistance) {
+            minDistance = distance;
+            nearest_id = i * 100 + j * 10 + k;
           }
         }
       }
     }
-
 
     for (int i = -1; i < 2; i++) {
       for (int j = -1; j < 2; j++) {
