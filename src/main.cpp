@@ -231,6 +231,7 @@ void drawNum(glm::vec3 pos, std::int8_t num) {
   };
 
   glBegin(GL_QUADS);
+  glNormal3f(0.0f, 0.0f, 1.0f);
   if (num == 1) {
     for (int i = 0; i < 4; i++) {
       glVertex3f(lines[5][i][0], lines[5][i][1], lines[5][i][2]);
@@ -304,16 +305,16 @@ void drawNum(glm::vec3 pos, std::int8_t num) {
       glVertex3f(lines[0][i][0], lines[0][i][1], lines[0][i][2]);
     }
     for (int i = 0; i < 4; i++) {
-      glVertex3f(lines[5][i][0], lines[5][i][1], lines[5][i][2]);
+      glVertex3f(lines[1][i][0], lines[1][i][1], lines[1][i][2]);
     }
     for (int i = 0; i < 4; i++) {
-      glVertex3f(lines[6][i][0], lines[6][i][1], lines[6][i][2]);
+      glVertex3f(lines[2][i][0], lines[2][i][1], lines[2][i][2]);
     }
     for (int i = 0; i < 4; i++) {
       glVertex3f(lines[4][i][0], lines[4][i][1], lines[4][i][2]);
     }
     for (int i = 0; i < 4; i++) {
-      glVertex3f(lines[2][i][0], lines[2][i][1], lines[2][i][2]);
+      glVertex3f(lines[6][i][0], lines[6][i][1], lines[6][i][2]);
     }
     for (int i = 0; i < 4; i++) {
       glVertex3f(lines[3][i][0], lines[3][i][1], lines[3][i][2]);
@@ -381,7 +382,7 @@ int main() {
   glm::vec3 ray_direction = {0.0, 0.0, 0.0};
 
   // Init Camera helper
-  Camera camera(glm::vec3(0, 0, 0));
+  Camera camera(glm::vec3(0, 0, 10));
   camera.initialize(OpenGLContext::getAspectRatio());
   // Store camera as glfw global variable for callbasks use
   glfwSetWindowUserPointer(window, &camera);
@@ -454,7 +455,7 @@ int main() {
       rot_y = -rot_y;
     }
     
-    glTranslated(0.0, 0.0, -10.0);
+    //glTranslated(0.0, 0.0, -10.0);
 
     glRotatef(normalRot(rot_x + pre_rot_x), 1.0, 0.0, 0.0);
     glRotatef(normalRot(rot_y + pre_rot_y), 0.0, 1.0, 0.0);
@@ -500,7 +501,18 @@ int main() {
             glColor3f(YELLOW);
 
           }
-          drawCube(glm::vec3(i * 1.1f, j * 1.1f, k * 1.1f));
+          if (i == 1 && j == 1 && k == 1) {
+            glPushMatrix();
+            glTranslatef(i * 1.1f, j * 1.1f, k * 1.1f);
+            glRotatef(normalRot(-(rot_y + pre_rot_y)), 0.0, 1.0, 0.0);
+            glRotatef(normalRot(-(rot_x + pre_rot_x)), 1.0, 0.0, 0.0);
+            glTranslatef(-i * 1.1f, -j * 1.1f, -k * 1.1f);
+            glColor3f(GREEN);
+            drawNum(glm::vec3(i * 1.1f, j * 1.1f, k * 1.1f), 2);
+            glPopMatrix();
+          } else {
+            drawCube(glm::vec3(i * 1.1f, j * 1.1f, k * 1.1f));
+          }
         }
       }
     }
@@ -509,6 +521,7 @@ int main() {
       glPushMatrix();
       glRotatef(normalRot(-(rot_y + pre_rot_y)), 0.0, 1.0, 0.0);
       glRotatef(normalRot(-(rot_x + pre_rot_x)), 1.0, 0.0, 0.0);
+      //glTranslatef();
       glColor3f(YELLOW);
       drawNum(glm::vec3(i * 1.1f, 3.0f, 1.1f), (i + 4));
       glPopMatrix();
