@@ -2,7 +2,6 @@
 #include <memory>
 #include <vector>
 #include <iostream>
-
 #include <GLFW/glfw3.h>
 #define GLAD_GL_IMPLEMENTATION
 #include <glad/gl.h>
@@ -45,6 +44,7 @@ double x, y;
 float rot_x = 0.0f, rot_y = 0.0f, pre_rot_x = 0.0f, pre_rot_y = 0.0f;
 double mouseX = 0.0;
 double mouseY = 0.0;
+int width, height;
 
 // init rotation degree and position information
 float rot = 0.0f;
@@ -92,6 +92,41 @@ void keyCallback(GLFWwindow* window, int key, int, int action, int mods) {
   } else if (key == GLFW_KEY_RIGHT && action == GLFW_RELEASE) {
     isRight = false;
   }
+}
+
+double getDistance(const glm::vec3 rayOrigin, const glm::vec3 rayEnd, const glm::vec3 boxCenter,
+                              double boxHalfSize) {
+  double minDistance = std::numeric_limits<double>::max();
+
+  double min_x = boxCenter.x - boxHalfSize;
+  double max_x = boxCenter.x + boxHalfSize;
+  double min_y = boxCenter.y - boxHalfSize;
+  double max_y = boxCenter.y + boxHalfSize;
+
+  if ((rayOrigin.x < min_x && rayEnd.x < min_x) || (rayOrigin.y < min_y && rayEnd.y < min_y) ||
+      (rayOrigin.x > max_x && rayEnd.x > max_x) || (rayOrigin.y > max_y && rayEnd.y > max_y)) {
+    return minDistance;
+  }
+  minDistance = glm::distance(rayOrigin, boxCenter);
+  return minDistance;
+}
+
+void cursor_position_callback(double height, double width, glm::mat4 projection, glm::mat4 view, double* xpos, double* ypos) {
+  float screenX = *xpos;
+  float screenY = height - *ypos;
+
+  glm::mat4 inverseProjection = glm::inverse(projection);
+  glm::mat4 inverseView = glm::inverse(view);
+
+  glm::vec4 screenPos((screenX / width - 0.5f ) * 2.0f, (screenY / height - 0.5f ) * 2.0f, -1.0f, 0.0f);
+
+  glm::vec4 worldPos = inverseProjection * screenPos;
+  //worldPos /= worldPos.w;
+  worldPos = inverseView * worldPos;
+  //worldPos /= worldPos.w;
+  *xpos = worldPos.x * 8.4;
+  *ypos = worldPos.y * 8.4;
+  //std::cout << "World coordinates: (" << worldPos.x << ", " << worldPos.y << ", " << worldPos.z << ")" << std::endl;
 }
 
 void mouse_callback(GLFWwindow* window, int button, int action, int mods) {
@@ -163,6 +198,143 @@ void drawCube(glm::vec3 pos) {
   glEnd();
 }
 
+void drawNum(glm::vec3 pos, std::int8_t num) {
+  float lines[][4][3] = {
+      {{pos.x + 0.3, pos.y + 0.5, pos.z},
+       {pos.x - 0.3, pos.y + 0.5, pos.z},
+       {pos.x - 0.3, pos.y + 0.4, pos.z},
+       {pos.x + 0.3, pos.y + 0.4, pos.z}},
+      {{pos.x - 0.2, pos.y + 0.5, pos.z},
+       {pos.x - 0.3, pos.y + 0.5, pos.z},
+       {pos.x - 0.3, pos.y, pos.z},
+       {pos.x - 0.2, pos.y, pos.z}},
+      {{pos.x - 0.2, pos.y, pos.z},
+       {pos.x - 0.3, pos.y, pos.z},
+       {pos.x - 0.3, pos.y - 0.5, pos.z},
+       {pos.x - 0.2, pos.y - 0.5, pos.z}},
+      {{pos.x + 0.3, pos.y + 0.05, pos.z},
+       {pos.x - 0.3, pos.y + 0.05, pos.z},
+       {pos.x - 0.3, pos.y - 0.05, pos.z},
+       {pos.x + 0.3, pos.y - 0.05, pos.z}},
+      {{pos.x + 0.3, pos.y - 0.4, pos.z},
+       {pos.x - 0.3, pos.y - 0.4, pos.z},
+       {pos.x - 0.3, pos.y - 0.5, pos.z},
+       {pos.x + 0.3, pos.y - 0.5, pos.z}},
+      {{pos.x + 0.3, pos.y + 0.5, pos.z},
+       {pos.x + 0.2, pos.y + 0.5, pos.z},
+       {pos.x + 0.2, pos.y, pos.z},
+       {pos.x + 0.3, pos.y, pos.z}},
+      {{pos.x + 0.3, pos.y, pos.z},
+       {pos.x + 0.2, pos.y, pos.z},
+       {pos.x + 0.2, pos.y - 0.5, pos.z},
+       {pos.x + 0.3, pos.y - 0.5, pos.z}},
+  };
+
+  glBegin(GL_QUADS);
+  if (num == 1) {
+    for (int i = 0; i < 4; i++) {
+      glVertex3f(lines[5][i][0], lines[5][i][1], lines[5][i][2]);
+    }
+    for (int i = 0; i < 4; i++) {
+      glVertex3f(lines[6][i][0], lines[6][i][1], lines[6][i][2]);
+    }
+  } else if (num == 2) {
+    for (int i = 0; i < 4; i++) {
+      glVertex3f(lines[0][i][0], lines[0][i][1], lines[0][i][2]);
+    }
+    for (int i = 0; i < 4; i++) {
+      glVertex3f(lines[5][i][0], lines[5][i][1], lines[5][i][2]);
+    }
+    for (int i = 0; i < 4; i++) {
+      glVertex3f(lines[3][i][0], lines[3][i][1], lines[3][i][2]);
+    }
+    for (int i = 0; i < 4; i++) {
+      glVertex3f(lines[2][i][0], lines[2][i][1], lines[2][i][2]);
+    }
+    for (int i = 0; i < 4; i++) {
+      glVertex3f(lines[4][i][0], lines[4][i][1], lines[4][i][2]);
+    }
+  } else if (num == 3) {
+    for (int i = 0; i < 4; i++) {
+      glVertex3f(lines[0][i][0], lines[0][i][1], lines[0][i][2]);
+    }
+    for (int i = 0; i < 4; i++) {
+      glVertex3f(lines[5][i][0], lines[5][i][1], lines[5][i][2]);
+    }
+    for (int i = 0; i < 4; i++) {
+      glVertex3f(lines[6][i][0], lines[6][i][1], lines[6][i][2]);
+    }
+    for (int i = 0; i < 4; i++) {
+      glVertex3f(lines[4][i][0], lines[4][i][1], lines[4][i][2]);
+    }
+    for (int i = 0; i < 4; i++) {
+      glVertex3f(lines[3][i][0], lines[3][i][1], lines[3][i][2]);
+    }
+  } else if (num == 4) {
+    for (int i = 0; i < 4; i++) {
+      glVertex3f(lines[1][i][0], lines[1][i][1], lines[1][i][2]);
+    }
+    for (int i = 0; i < 4; i++) {
+      glVertex3f(lines[3][i][0], lines[3][i][1], lines[3][i][2]);
+    }
+    for (int i = 0; i < 4; i++) {
+      glVertex3f(lines[6][i][0], lines[6][i][1], lines[6][i][2]);
+    }
+    for (int i = 0; i < 4; i++) {
+      glVertex3f(lines[5][i][0], lines[5][i][1], lines[5][i][2]);
+    }
+  } else if (num == 5) {
+    for (int i = 0; i < 4; i++) {
+      glVertex3f(lines[0][i][0], lines[0][i][1], lines[0][i][2]);
+    }
+    for (int i = 0; i < 4; i++) {
+      glVertex3f(lines[1][i][0], lines[1][i][1], lines[1][i][2]);
+    }
+    for (int i = 0; i < 4; i++) {
+      glVertex3f(lines[3][i][0], lines[3][i][1], lines[3][i][2]);
+    }
+    for (int i = 0; i < 4; i++) {
+      glVertex3f(lines[6][i][0], lines[6][i][1], lines[6][i][2]);
+    }
+    for (int i = 0; i < 4; i++) {
+      glVertex3f(lines[4][i][0], lines[4][i][1], lines[4][i][2]);
+    }
+  } else if (num == 6) {
+    for (int i = 0; i < 4; i++) {
+      glVertex3f(lines[0][i][0], lines[0][i][1], lines[0][i][2]);
+    }
+    for (int i = 0; i < 4; i++) {
+      glVertex3f(lines[5][i][0], lines[5][i][1], lines[5][i][2]);
+    }
+    for (int i = 0; i < 4; i++) {
+      glVertex3f(lines[6][i][0], lines[6][i][1], lines[6][i][2]);
+    }
+    for (int i = 0; i < 4; i++) {
+      glVertex3f(lines[4][i][0], lines[4][i][1], lines[4][i][2]);
+    }
+    for (int i = 0; i < 4; i++) {
+      glVertex3f(lines[2][i][0], lines[2][i][1], lines[2][i][2]);
+    }
+    for (int i = 0; i < 4; i++) {
+      glVertex3f(lines[3][i][0], lines[3][i][1], lines[3][i][2]);
+    }
+  } else if (num == 7) {
+    for (int i = 0; i < 4; i++) {
+      glVertex3f(lines[1][i][0], lines[1][i][1], lines[1][i][2]);
+    }
+    for (int i = 0; i < 4; i++) {
+      glVertex3f(lines[0][i][0], lines[0][i][1], lines[0][i][2]);
+    }
+    for (int i = 0; i < 4; i++) {
+      glVertex3f(lines[5][i][0], lines[5][i][1], lines[5][i][2]);
+    }
+    for (int i = 0; i < 4; i++) {
+      glVertex3f(lines[6][i][0], lines[6][i][1], lines[6][i][2]);
+    }
+  }
+  glEnd();
+}
+
 void light() {
   GLfloat light_specular[] = {0.6f, 0.6f, 0.6f, 1};
   GLfloat light_diffuse[] = {0.6f, 0.6f, 0.6f, 1};
@@ -184,22 +356,6 @@ void light() {
   glLightfv(GL_LIGHT0, GL_AMBIENT, light_ambient);
 }
 
-void render_mouse(GLFWwindow* window) { 
-  double x, y;
-  glfwGetCursorPos(window, &x, &y);
-  int width, height;
-  glfwGetWindowSize(window, &width, &height);
-  std::cout << width << ", " << height << "\n" << std::endl;
-  x = 2.0 * x / width - 1.0;
-  y = 1.0 - 2.0 * y / height;
-  glColor3f(RED);
-  glBegin(GL_QUADS);
-  glVertex3d(x + 3.0, y, 10.0);
-  glVertex3d(x - 3.0, y, 10.0);
-  glVertex3d(x, y + 3.0, 10.0);
-  glVertex3d(x, y - 3.0, 10.0);
-  glEnd();
-}
 
 /* int main() { 
   Minesweeper game = Minesweeper(3, 3, 3, 1);
@@ -220,9 +376,12 @@ void render_mouse(GLFWwindow* window) {
 int main() {
   initOpenGL();
   GLFWwindow* window = OpenGLContext::getWindow();
+  glfwGetWindowSize(window, &width, &height);
+
+  glm::vec3 ray_direction = {0.0, 0.0, 0.0};
 
   // Init Camera helper
-  Camera camera(glm::vec3(0, 5, 10));
+  Camera camera(glm::vec3(0, 0, 0));
   camera.initialize(OpenGLContext::getAspectRatio());
   // Store camera as glfw global variable for callbasks use
   glfwSetWindowUserPointer(window, &camera);
@@ -235,6 +394,12 @@ int main() {
       std::getline(set_file, line);
     }
   }
+
+  // Initisl mineswapper
+  enum TileStatus : int8_t { Unvisit, Flagged, Visited };
+  Minesweeper game = Minesweeper(3, 3, 3, 1);
+  std::vector<std::vector<std::vector<std::int8_t>>> board = game.getBoard();
+  std::vector<std::vector<std::vector<Minesweeper::TileStatus>>> status = game.getStatus();
 
   // Main rendering loop
   while (!glfwWindowShouldClose(window)) {
@@ -253,17 +418,24 @@ int main() {
     // ModelView Matrix
     glMatrixMode(GL_MODELVIEW);
     glLoadMatrixf(camera.getViewMatrix());
-
+    
 #ifndef DISABLE_LIGHT
     glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
     glClear(GL_COLOR_BUFFER_BIT);
     glClearDepth(1.0f);
     light();
 #endif
+    glm::vec3 half_size = {0.5, 0.5, 0.5};
+    glfwGetCursorPos(window, &mouseX, &mouseY);
+    cursor_position_callback(height, width, camera.getProjection(), camera.getView(), &mouseX, &mouseY);
+    //std::cout << mouseX << ", " << mouseY << "\n" << std::endl;
+
     if (isClick) {
       glfwGetCursorPos(window, &x, &y);
       rot_y = normalRot((float)(x - last_x) * 0.1f);
       rot_x = normalRot((float)(y - last_y) * 0.1f);
+
+      //ray_direction = GetRayFromMouse(camera, mouseX, mouseY);
     } else {
       pre_rot_x += rot_x;
       pre_rot_y += rot_y;
@@ -274,25 +446,72 @@ int main() {
     }
 
     //glPushMatrix();
-    render_mouse(window);
+    //glTranslated(0.0, 0.0, -1.0);
+    
     //glPopMatrix();
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
     if ((pre_rot_x >= 90.0f && pre_rot_x < 270.0f) || (pre_rot_x <= -90.0f && pre_rot_x > -270.0f)) {
       rot_y = -rot_y;
     }
-
-    glTranslated(0.0, 4.0, -1.0);
+    
+    glTranslated(0.0, 0.0, -10.0);
 
     glRotatef(normalRot(rot_x + pre_rot_x), 1.0, 0.0, 0.0);
     glRotatef(normalRot(rot_y + pre_rot_y), 0.0, 1.0, 0.0);
 
+    glPushMatrix();
+    //glTranslated(0.0, 0.0, 1.6);
+    glm::mat4 trans(1.0f);
+    trans = glm::rotate(trans, glm::radians(-normalRot(rot_y + pre_rot_y)), glm::vec3(0.0, 1.0, 0.0));
+    trans = glm::rotate(trans, glm::radians(-normalRot(rot_x + pre_rot_x)), glm::vec3(1.0, 0.0, 0.0));
+    glm::vec4 start = (trans * glm::vec4(mouseX, mouseY, 5.0, 1.0));
+    glm::vec4 end = (trans * glm::vec4(mouseX, mouseY, -5.0, 1.0));
+    glColor3d(RED);
+    glBegin(GL_LINES);
+    glVertex3d(start.x, start.y, start.z);
+    glVertex3d(end.x, end.y, end.z);
+    glEnd();
+    glPopMatrix();
+    int nearest_id = -1000;
+    float minDistance = std::numeric_limits<float>::max();
+
+    for (int i = -1; i < 2; ++i) {
+      for (int j = -1; j < 2; ++j) {
+        for (int k = -1; k < 2; ++k) {
+          // Calculate cube's position
+          glm::vec3 cubePos = glm::vec3(i * 1.1f, j * 1.1f, k * 1.1f);
+
+          double distance = getDistance(glm::vec3(start.x, start.y, start.z),
+                                        glm::vec3(end.x, end.y, end.z), cubePos, 0.5);
+          if (distance < minDistance) {
+            minDistance = distance;
+            nearest_id = i * 100 + j * 10 + k;
+          }
+        }
+      }
+    }
+
     for (int i = -1; i < 2; i++) {
       for (int j = -1; j < 2; j++) {
         for (int k = -1; k < 2; k++) {
-          glColor3f(WHITE);
+          if ((i * 100 + j * 10 + k) != nearest_id) {
+            glColor3f(WHITE);
+          } else {
+            glColor3f(YELLOW);
+
+          }
           drawCube(glm::vec3(i * 1.1f, j * 1.1f, k * 1.1f));
         }
       }
+    }
+
+    for (std::int8_t i = -3; i < 4; i++) {
+      glPushMatrix();
+      glRotatef(normalRot(-(rot_y + pre_rot_y)), 0.0, 1.0, 0.0);
+      glRotatef(normalRot(-(rot_x + pre_rot_x)), 1.0, 0.0, 0.0);
+      glColor3f(YELLOW);
+      drawNum(glm::vec3(i * 1.1f, 3.0f, 1.1f), (i + 4));
+      glPopMatrix();
     }
 #ifdef __APPLE__
     // Some platform need explicit glFlush

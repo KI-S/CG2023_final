@@ -11,6 +11,9 @@ class Camera {
   void updateViewMatrix();
   void updateProjectionMatrix(float aspectRatio);
 
+  glm::mat4 getProjection() { return projectionMatrix; }
+  glm::mat4 getView() { return viewMatrix; }
+  glm::vec3 getPos() { return position; }
   const float* getProjectionMatrix() const { return glm::value_ptr(projectionMatrix); }
   const float* getViewMatrix() const { return glm::value_ptr(viewMatrix); }
 
