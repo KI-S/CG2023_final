@@ -1,4 +1,4 @@
-#include <algorithm>
+ï»¿#include <algorithm>
 #include <memory>
 #include <vector>
 #include <iostream>
@@ -12,21 +12,10 @@
 #include "opengl_context.h"
 #include "utils.h"
 #include "minesweeper.h"
-#include <filesystem>
 #include <iostream>
 #include <fstream>
 #include <sstream>
 #include <string>
-
-#define ANGLE_TO_RADIAN(x) (float)((x)*M_PI / 180.0f) 
-#define RADIAN_TO_ANGEL(x) (float)((x)*180.0f / M_PI) 
-
-#define CIRCLE_SEGMENT 64
-
-#define ROTATE_SPEED 1.0f
-#define WING_ROTATE_SPEED 5.0f
-#define FLYING_SPEED ROTATE_SPEED / 20.f
-#define BULLET_SPEED 3.0f
 
 #define RED 0.905f, 0.298f, 0.235f
 #define BLUE 0.203f, 0.096f, 0.858f
@@ -43,13 +32,11 @@
 #define COLOR_DARK_BROWN 0.55f, 0.27f, 0.08f
 #define COLOR_DARK_GRAY 0.5f, 0.5f, 0.5f
 
-// init move bool
-bool isSpace = false;
-bool isLeft = false;
-bool isRight = false;
-
 bool isClick;
-bool isPick = true;
+bool isRightClick;
+
+bool isReset = true;
+
 double last_x, last_y;
 double x, y;
 float rot_x = 0.0f, rot_y = 0.0f, pre_rot_x = 0.0f, pre_rot_y = 0.0f;
@@ -71,8 +58,8 @@ void applyRay(GLFWwindow* window, Camera camera, glm::vec4 &start, glm::vec4 &en
 int parseGameSetting(const std::string filename);
 void rotateCoord(GLFWwindow* window);
 void drawMine(glm::vec3 center, float size);
-int handleClickBlock(glm::vec3 id, Minesweeper game, glm::vec4 start, glm::vec4 end);
-void drawBoard(Minesweeper game, glm::vec3 id);
+int handleClickBlock(glm::vec3 &id, Minesweeper &game, glm::vec4 start, glm::vec4 end);
+void drawBoard(Minesweeper &game, glm::vec3 id);
 
 void resizeCallback(GLFWwindow* window, int width, int height) {
   OpenGLContext::framebufferResizeCallback(window, width, height);
@@ -92,28 +79,47 @@ float normalRot(float rot) {
   return rot;
 }
 
-void keyCallback(GLFWwindow* window, int key, int, int action, int mods) {
-  if (key == GLFW_KEY_ESCAPE) {
-    glfwSetWindowShouldClose(window, GLFW_TRUE);
-    return;
+
+
+bool ifIntersect(glm::vec3 center, float size, glm::vec3 rayDir, glm::vec3 rayOrigin) {
+  float epsilon = 0.001f;  // ç²¾åº¦
+
+  glm::vec3 normArray[6] = {glm::vec3(1, 0, 0), glm::vec3(-1, 0, 0), glm::vec3(0, 1, 0), 
+                            glm::vec3(0, -1, 0), glm::vec3(0, 0, 1), glm::vec3(0, 0, -1)};
+
+  for (int i = 0; i < 6; ++i) {
+    glm::vec3 norm = normArray[i];
+    glm::vec3 faceCenter = glm::vec3(center.x + size * norm.x, center.y + size * norm.y, center.z + size * norm.z);
+
+    float denom = glm::dot(norm, rayDir);
+    if (abs(denom) > epsilon) {
+      glm::vec3 rayToPlane = faceCenter - rayOrigin;
+      float t = glm::dot(rayToPlane, norm) / denom;
+
+      if (t >= 0) {
+        // è¨ˆç®—äº¤é»ž
+        glm::vec3 intersectionPoint = rayOrigin + t * rayDir;
+        
+        if (norm.x) {
+          if (intersectionPoint.y <= faceCenter.y + size && intersectionPoint.y >= faceCenter.y - size &&
+                  intersectionPoint.z <= faceCenter.z + size && intersectionPoint.z >= faceCenter.z - size) {
+            return true;
+          }
+        } else if (norm.y) {
+          if (intersectionPoint.x <= faceCenter.x + size && intersectionPoint.x >= faceCenter.x - size &&
+                  intersectionPoint.z <= faceCenter.z + size && intersectionPoint.z >= faceCenter.z - size) {
+            return true;
+          }
+        } else if (norm.z) {
+          if (intersectionPoint.x <= faceCenter.x + size && intersectionPoint.x >= faceCenter.x - size &&
+                  intersectionPoint.y <= faceCenter.y + size &&  intersectionPoint.y >= faceCenter.y - size) {
+            return true;
+          }
+        }
+      }
+    }
   }
-  
-  if (key == GLFW_KEY_SPACE && action == GLFW_PRESS) {
-    isSpace = true;
-  } 
-  else if (key == GLFW_KEY_SPACE && action == GLFW_RELEASE) {
-    isSpace = false;
-  }
-  if (key == GLFW_KEY_LEFT && action == GLFW_PRESS) {
-    isLeft = true;
-  } else if (key == GLFW_KEY_LEFT && action == GLFW_RELEASE) {
-    isLeft = false;
-  }
-  if (key == GLFW_KEY_RIGHT && action == GLFW_PRESS) {
-    isRight = true;
-  } else if (key == GLFW_KEY_RIGHT && action == GLFW_RELEASE) {
-    isRight = false;
-  }
+  return false;
 }
 
 double getDistance(const glm::vec3 rayOrigin, const glm::vec3 rayEnd, const glm::vec3 boxCenter,
@@ -131,10 +137,8 @@ double getDistance(const glm::vec3 rayOrigin, const glm::vec3 rayEnd, const glm:
   float end_posX = rayEnd.x * (10.0f - boxCenter.z - 0.5f);
   float end_posY = rayEnd.y * (10.0f - boxCenter.z - 0.5f);
 
-  if ((start_posX < min_x && end_posX < min_x) || (start_posY < min_y && end_posY < min_y) ||
-      (start_posX > max_x && end_posX > max_x) || (start_posY > max_y && end_posY > max_y)) {
+  if (!ifIntersect(boxCenter, boxHalfSize, rayEnd - rayOrigin, rayOrigin))
     return minDistance;
-  }
   minDistance = glm::distance(rayOrigin, boxCenter);
   return minDistance;
 }
@@ -159,12 +163,32 @@ void cursor_position_callback(double height, double width, glm::mat4 projection,
   //std::cout << "World coordinates: (" << worldPos.x << ", " << worldPos.y << ", " << worldPos.z << ")" << std::endl;
 }
 
+void keyCallback(GLFWwindow* window, int key, int, int action, int) {
+  // There are three actions: press, release, hold(repeat)
+  // if (action == GLFW_REPEAT) return;
+
+  // Press ESC to close the window.
+  if (key == GLFW_KEY_ESCAPE) {
+    glfwSetWindowShouldClose(window, GLFW_TRUE);
+    return;
+  }
+  if (key == GLFW_KEY_R) {
+    isReset = true;
+  }
+}
+
 void mouse_callback(GLFWwindow* window, int button, int action, int mods) {
   if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
-     glfwGetCursorPos(window, &last_x, &last_y);
-     isClick = true;
+    glfwGetCursorPos(window, &last_x, &last_y);
+    isClick = true;
   } else if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE) {
     isClick = false;
+  }
+  if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS) {
+    glfwGetCursorPos(window, &last_x, &last_y);
+    isRightClick = true;
+  } else if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_RELEASE) {
+    isRightClick = false;
   }
 }
 
@@ -188,6 +212,25 @@ void initOpenGL() {
   // This is useful if you want to debug your OpenGL API calls.
   OpenGLContext::enableDebugCallback();
 #endif
+}
+
+void drawFlag(glm::vec3 pos, float halfSize) {
+  glColor3f(RED);
+  glBegin(GL_TRIANGLES);
+  glNormal3f(0.0, 0.0, 1.0f);
+  glVertex3f(pos.x, pos.y + 0.45f * halfSize, pos.z);
+  glVertex3f(pos.x, pos.y, pos.z);
+  glVertex3f(pos.x + 0.38 * halfSize, pos.y + 0.225 * halfSize, pos.z);
+  glEnd();
+
+  glColor3f(COLOR_DARK_BROWN);
+  glBegin(GL_QUADS);
+  glNormal3f(0.0, 0.0, 1.0f);
+  glVertex3f(pos.x + 0.05f * halfSize, pos.y + 0.45f * halfSize, pos.z);
+  glVertex3f(pos.x - 0.05f * halfSize, pos.y + 0.45f * halfSize, pos.z);
+  glVertex3f(pos.x - 0.05f * halfSize, pos.y - 0.45f * halfSize, pos.z);
+  glVertex3f(pos.x + 0.05f * halfSize, pos.y - 0.45f * halfSize, pos.z);
+  glEnd();
 }
 
 void drawCube(glm::vec3 pos, float halfSize) { 
@@ -434,26 +477,19 @@ int main() {
     rotateCoord(window);
 
     // apply ray
-    glm::vec4 start;
-    glm::vec4 end;
-    applyRay(window, camera, start, end);
+    glm::vec4 cameraPos;
+    glm::vec4 cursorPos;
+    applyRay(window, camera, cameraPos, cursorPos);
 
-    glm::vec3 nearest_id(-1, -1, -1);
-
-    //handleClickBlock(nearest_id, game, start, end);
-    drawBoard(game, nearest_id);
-
-    for (std::int8_t i = -4; i < 5; i++) {
-      glPushMatrix();
-      glRotatef(normalRot(-(rot_y + pre_rot_y)), 0.0, 1.0, 0.0);
-      glRotatef(normalRot(-(rot_x + pre_rot_x)), 1.0, 0.0, 0.0);
-      //glTranslatef();
-      glColor3f(YELLOW);
-      drawNum(glm::vec3(i * 1.1f, 3.0f, 1.1f), (i + 5), 0.5);
-      glPopMatrix();
+    if (isReset) {
+      isReset = false;
+      game = Minesweeper(gameSize, gameSize, gameSize, mineCount);
     }
-    glColor3f(COLOR_DARK_GRAY);
-    drawMine(glm::vec3(-5.5f, 3.0f, 1.1f), 0.5);
+
+    glm::vec3 id(-1, -1, -1);
+    handleClickBlock(id, game, cameraPos, cursorPos);
+    drawBoard(game, id);
+
 #ifdef __APPLE__
     // Some platform need explicit glFlush
     glFlush();
@@ -473,15 +509,11 @@ void applyRay(GLFWwindow* window, Camera camera, glm::vec4& start, glm::vec4& en
   glm::mat4 trans(1.0f);
   trans = glm::rotate(trans, glm::radians(-normalRot(rot_y + pre_rot_y)), glm::vec3(0.0, 1.0, 0.0));
   trans = glm::rotate(trans, glm::radians(-normalRot(rot_x + pre_rot_x)), glm::vec3(1.0, 0.0, 0.0));
-  start = (trans * glm::vec4(mouseX, mouseY, 5.0, 1.0));
-  end = (trans * glm::vec4(mouseX, mouseY, -5.0, 1.0));
+  start = (trans * glm::vec4(0.0f, 0.0f, 10.0, 1.0));
+  end = (trans * glm::vec4(mouseX, mouseY, 9.0, 1.0));
+  glm::vec3 tmp =
+      glm::vec3((end.x - start.x) * 10 + start.x, (end.y - start.y) * 10 + start.y, (end.z - start.z) * 10 + start.z);
 
-
-  glColor3d(RED);
-  glBegin(GL_LINES);
-  glVertex3d(start.x, start.y, start.z);
-  glVertex3d(end.x, end.y, end.z);
-  glEnd();
   glPopMatrix();
 }
 
@@ -502,11 +534,9 @@ int parseGameSetting(const std::string filename) {
     if (iss >> key >> value) {
       if (key == "GAME_SIZE") {
         std::cout << "game size : " << value << std::endl;
-        // ¦b³o¸Ì³B²z¹CÀ¸¤j¤pªºÅÞ¿è
         gameSize = value;
       } else if (key == "MINE_COUNT") {
         std::cout << "mine count : " << value << std::endl;
-        // ¦b³o¸Ì³B²z¦a¹p¼Æ¶qªºÅÞ¿è
         mineCount = value;
       } else {
         std::cerr << "undefine key : " << key << std::endl;
@@ -556,7 +586,7 @@ void drawCone(float size) {
     float x2 = size * cos((i + 10) * M_PI / 180.0);
     float y2 = size * sin((i + 10) * M_PI / 180.0);
 
-    // °¼­±¤T¨¤§Î
+    // å´é¢ä¸‰è§’å½¢
     float nx1 = cos(i * M_PI / 180.0);
     float ny1 = sin(i * M_PI / 180.0);
     float nx2 = cos((i + 10) * M_PI / 180.0);
@@ -570,10 +600,11 @@ void drawCone(float size) {
   glEnd();
 }
 
-void drawBoard(Minesweeper game, glm::vec3 id) {
-  game.selectTile(0, 0, 0);
+void drawBoard(Minesweeper &game, glm::vec3 id) {
+  bool lose = false;
   if (game.checkLose() == true) {
-    std::cout << "wtf lose?" << std::endl;
+    lose = true;
+    std::cout << "lose!" << std::endl;
   }
 
   float maxWidth = 5.0f;
@@ -595,29 +626,46 @@ void drawBoard(Minesweeper game, glm::vec3 id) {
                          (k - (gameSize - 1) / 2.0f) * areaWidth);
         switch (status[i][j][k]) {
           case Minesweeper::Unvisit:
+            if (lose && board[i][j][k] == -1) {
+              glColor3f(COLOR_DARK_GRAY);
+              drawMine(center, areaWidth / 2);
+              break;
+            }   
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
             if (id.x == i && id.y == j && id.z == k) {
-              glColor3f(YELLOW);
+              glColor4f(YELLOW, 0.8f);
             } else {
-              glColor3f(WHITE);
+              glColor4f(WHITE, 0.8f);
             }
             drawCube(center, blockWidth / 2);
+            glDisable(GL_BLEND);
             break;
           case Minesweeper::Flagged:
-            // drawFlag(glm::vec3(), blockWidth);
-            break;
-          case Minesweeper::Visited:
-            //if (board[i][j][k] != 0) {
-
             glPushMatrix();
             glTranslatef(center.x, center.y, center.z);
             glRotatef(normalRot(-(rot_y + pre_rot_y)), 0.0, 1.0, 0.0);
             glRotatef(normalRot(-(rot_x + pre_rot_x)), 1.0, 0.0, 0.0);
             glTranslatef(-center.x, -center.y, -center.z);
-            glColor3f(GREEN);
-            drawNum(center, static_cast<int>(board[i][j][k]), areaWidth / 2);
+            drawFlag(glm::vec3(center), areaWidth / 2);
             glPopMatrix();
-
-            //}
+            break;
+          case Minesweeper::Visited:
+            if (board[i][j][k] > 0) {
+                glPushMatrix();
+                glTranslatef(center.x, center.y, center.z);
+                glRotatef(normalRot(-(rot_y + pre_rot_y)), 0.0, 1.0, 0.0);
+                glRotatef(normalRot(-(rot_x + pre_rot_x)), 1.0, 0.0, 0.0);
+                glTranslatef(-center.x, -center.y, -center.z);
+                glColor3f(GREEN);
+                drawNum(center, static_cast<int>(board[i][j][k]), areaWidth / 2);
+                glPopMatrix();
+            }
+            if (board[i][j][k] == -1) {
+              glColor3f(RED);
+              drawMine(center, areaWidth / 2);
+            }
             break;
           default:
             std::cout << static_cast<int>(status[i][j][k]) << " why?" << std::endl;
@@ -629,8 +677,7 @@ void drawBoard(Minesweeper game, glm::vec3 id) {
 }
 
 void drawMine(glm::vec3 center, float size) { 
-  // Ã¸»s¦a¹p¥DÅé
-  glColor3f(0.5, 0.5, 0.5);
+  // ç¹ªè£½åœ°é›·ä¸»é«”
   glPushMatrix();
   glTranslatef(center.x, center.y, center.z);
   int stacks = 180;
@@ -661,7 +708,7 @@ void drawMine(glm::vec3 center, float size) {
   }
   glPopMatrix();
 
-  // Ã¸»s¦a¹p¤Wªº¦y¨ë¡A¥i¥H®Ú¾Ú»Ý­n¼W´î¦y¨ëªº¼Æ¶q©M¦ì¸m
+  // ç¹ªè£½åœ°é›·ä¸Šçš„å°–åˆºï¼Œå¯ä»¥æ ¹æ“šéœ€è¦å¢žæ¸›å°–åˆºçš„æ•¸é‡å’Œä½ç½®
   int dir[][3] = {{1, 0, 0}, {0, 1, 0}, {1, 1, 0}, {-1, 1, 0}};
   for (int i = 0; i < 4; ++i) {
     for (int j = 0; j < 8; ++j) {
@@ -677,42 +724,84 @@ void drawMine(glm::vec3 center, float size) {
 }
 
 
-int handleClickBlock(glm::vec3 id, Minesweeper game, glm::vec4 start, glm::vec4 end) {
-  glm::vec3 lastId(-1, -1, -1);
+int handleClickBlock(glm::vec3& getId, Minesweeper &game, glm::vec4 start, glm::vec4 end) {
+  if (game.checkLose()) {
+    return - 1;
+  }
+  static bool flg = false;
+  static bool r_flg = false;
+  static glm::vec3 lastId(999, 999, 999);
+  glm::vec3 id(999, 999, 999); 
   float minDistance = std::numeric_limits<float>::max();
 
   float maxWidth = 5.0f;
   auto status = game.getStatus();
   auto board = game.getBoard();
-  int mid = gameSize / 2;
-  int first = -mid;
-  int last = gameSize - mid;
   float areaWidth = maxWidth / gameSize;
   float blockWidth = areaWidth * 0.9f;
-
-  // click on block
-  if (isClick) {
-    for (int i = 0; i < gameSize; ++i) {
-      for (int j = 0; j < gameSize; ++j) {
-        for (int k = 0; k < gameSize; ++k) {
+  
+  for (int i = 0; i < gameSize; ++i) {
+    for (int j = 0; j < gameSize; ++j) {
+      for (int k = 0; k < gameSize; ++k) {
+        if (status[i][j][k] != Minesweeper::Visited) {
           glm::vec3 center((i - (gameSize - 1) / 2.0f) * areaWidth, (j - (gameSize - 1) / 2.0f) * areaWidth,
                            (k - (gameSize - 1) / 2.0f) * areaWidth);
           float tmp = getDistance(start, end, center, blockWidth / 2.0f);
           if (tmp < minDistance) {
             minDistance = tmp;
-            id = glm::vec3(i, j, k);
+            id = glm::vec3(i, j, k); /*
+            switch (status[i][j][k]) {
+              case Minesweeper::Unvisit:
+                std::cout << "0 ";
+                break;
+              case Minesweeper::Flagged:
+                std::cout << "F ";
+                break;
+              case Minesweeper::Visited:
+                std::cout << "1 ";
+                break;
+              default:
+                std::cout << "Bugged ";
+                break;
+            }*/
           }
         }
       }
     }
-    lastId = id;
+  }
+  getId = id;
+  // click on block 
+  if (isClick) {
+    if (flg == false) {
+      lastId = id;
+    }
+    flg = true;
   }
   // release on block
-  if (!isClick && lastId == id) {
-    lastId = glm::vec3(-1, -1, -1);
-    if (lastId.x >= gameSize || lastId.y >= gameSize || lastId.z >= gameSize) {
+  if (flg && !isClick) {
+    flg = false;
+    if (id.x >= gameSize || id.y >= gameSize || id.z >= gameSize) {
       return -99999;
     }
-    return game.selectTile(id.x, id.y, id.z);
+
+    return id == lastId && game.selectTile(id.x, id.y, id.z);
   }
+
+  // Flag
+  if (isRightClick) {
+    if (r_flg == false) {
+      lastId = id;
+    }
+    r_flg = true;
+  }
+  // release on block
+  if (r_flg && !isRightClick) {
+    r_flg = false;
+    if (id.x >= gameSize || id.y >= gameSize || id.z >= gameSize) {
+      return -99999;
+    }
+
+    return id == lastId && game.flagTile(id.x, id.y, id.z);
+  }
+  return -2;
 }

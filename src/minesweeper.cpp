@@ -81,6 +81,7 @@ int Minesweeper::selectTile(int row, int col, int depth) {
     // if player select mine
     if (board[row][col][depth] == -1) {
       // lose
+      status[row][col][depth] = Visited;
       flgLose = true;
       return 0;
     }
