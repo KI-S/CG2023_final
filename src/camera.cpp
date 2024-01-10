@@ -76,7 +76,8 @@ void Camera::updateViewMatrix() {
    */
 
   glm::vec3 rotated_front = glm::mat3(this->rotation) * original_front;
-  this->viewMatrix = glm::lookAt(this->position, rotated_front + this->position, original_up);
+  glm::vec3 rotated_up = glm::mat3(this->rotation) * original_up;
+  this->viewMatrix = glm::lookAt(this->position, rotated_front + this->position, rotated_up);
 }
 
 void Camera::updateProjectionMatrix(float aspectRatio) {
