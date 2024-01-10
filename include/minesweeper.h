@@ -11,6 +11,7 @@ private:
 	int depths;
 	int totalMines;
     int remainStepCount;
+	int flagNum;
 	bool flgLose;
 
 public:
@@ -29,6 +30,7 @@ public:
 	void printBoard();
     void printActualBoard();
     void printStatus();
+    int flagCount();
     bool checkWin();
     bool checkLose();
 

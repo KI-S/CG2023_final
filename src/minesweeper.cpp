@@ -9,7 +9,12 @@ Minesweeper::Minesweeper(int rows, int cols, int depths, int mines) : rows(rows)
   status.resize(rows, std::vector<std::vector<TileStatus>>(cols, std::vector<TileStatus>(depths, Unvisit)));
   remainStepCount = rows * cols * depths - mines;
   flgLose = false;
+  flagNum = 0;
   placeMines();
+}
+
+int Minesweeper::flagCount() {
+  return flagNum;
 }
 
 bool Minesweeper::onBoard(int row, int col, int depth) {
@@ -86,6 +91,7 @@ int Minesweeper::selectTile(int row, int col, int depth) {
       return 0;
     }
     status[row][col][depth] = Visited;
+    remainStepCount--;
     if (board[row][col][depth] == 0) {
       traverseTile(row, col, depth);
     }
@@ -100,6 +106,7 @@ void Minesweeper::traverseTile(int row, int col, int depth) {
       for (int k= depth - 1; k <= depth + 1; k++) {
         if (onBoard(i, j, k) && status[i][j][k] == Unvisit) {
           status[i][j][k] = Visited;
+          remainStepCount--;
           if (board[i][j][k] == 0) {
             traverseTile(i, j, k);
           }
@@ -113,8 +120,10 @@ bool Minesweeper::flagTile(int row, int col, int depth) {
   if (status[row][col][depth] != Visited) {
     if (status[row][col][depth] != Flagged) {
       status[row][col][depth] = Flagged;
+      flagNum++;
     } else {
       status[row][col][depth] = Unvisit;
+      flagNum--;
     }
     return true;
   }

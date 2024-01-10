@@ -16,6 +16,8 @@
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <chrono>
+#include <cmath>
 
 #define RED 0.905f, 0.298f, 0.235f
 #define BLUE 0.203f, 0.096f, 0.858f
@@ -23,7 +25,7 @@
 #define YELLOW 1.0f, 1.0f, 0.0f
 #define WHITE 1.0f, 1.0f, 1.0f
 
-#define COLOR_BLUE 0.203f, 0.096f, 0.858f
+#define COLOR_BLUE 0.403f, 0.496f, 0.858f
 #define COLOR_GREEN 0.18f, 0.8f, 0.443f
 #define COLOR_RED 0.905f, 0.298f, 0.235f
 #define COLOR_DARK_BLUE 0.101f, 0.048f, 0.700f
@@ -31,6 +33,7 @@
 #define COLOR_LIGHT_GREEN 0.19f, 0.9f, 0.443f
 #define COLOR_DARK_BROWN 0.55f, 0.27f, 0.08f
 #define COLOR_DARK_GRAY 0.5f, 0.5f, 0.5f
+#define COLOR_GOLD 1.0f, 0.843f, 0.0f
 
 bool isClick;
 bool isRightClick;
@@ -280,7 +283,7 @@ void drawBar(float line[4][3]) {
   glEnd();
 }
 
-void drawNum(glm::vec3 pos, std::int8_t num, float size) {
+void drawNum(glm::vec3 pos, std::int8_t num, float size, bool isBoard) {
   float lines[][4][3] = {
     {{(pos.x + 0.3 * size), (pos.y + 0.5 * size), pos.z},
      {(pos.x - 0.3 * size), (pos.y + 0.5 * size), pos.z},
@@ -329,11 +332,11 @@ void drawNum(glm::vec3 pos, std::int8_t num, float size) {
       drawBar(lines[4]);
       break;
     case 1:
-      glColor3d(COLOR_BLUE);
+      if (isBoard) glColor3d(COLOR_BLUE);
       drawBar(lines[7]);
       break;
     case 2:
-      glColor3d(COLOR_GREEN);
+      if (isBoard) glColor3d(COLOR_GREEN);
       drawBar(lines[0]);
       drawBar(lines[5]);
       drawBar(lines[3]);
@@ -341,7 +344,7 @@ void drawNum(glm::vec3 pos, std::int8_t num, float size) {
       drawBar(lines[4]);
       break;
     case 3:
-      glColor3d(COLOR_RED);
+      if (isBoard) glColor3d(COLOR_RED);
       drawBar(lines[0]);
       drawBar(lines[5]);
       drawBar(lines[6]);
@@ -349,14 +352,14 @@ void drawNum(glm::vec3 pos, std::int8_t num, float size) {
       drawBar(lines[3]);
       break;
     case 4:
-      glColor3d(COLOR_DARK_BLUE);
+      if (isBoard) glColor3d(COLOR_DARK_BLUE);
       drawBar(lines[1]);
       drawBar(lines[3]);
       drawBar(lines[6]);
       drawBar(lines[5]);
       break;
     case 5:
-      glColor3d(COLOR_DARK_RED);
+      if (isBoard) glColor3d(COLOR_DARK_RED);
       drawBar(lines[0]);
       drawBar(lines[1]);
       drawBar(lines[3]);
@@ -364,7 +367,7 @@ void drawNum(glm::vec3 pos, std::int8_t num, float size) {
       drawBar(lines[4]);
       break;
     case 6:
-      glColor3d(COLOR_LIGHT_GREEN);
+      if (isBoard) glColor3d(COLOR_LIGHT_GREEN);
       drawBar(lines[0]);
       drawBar(lines[1]);
       drawBar(lines[2]);
@@ -373,14 +376,14 @@ void drawNum(glm::vec3 pos, std::int8_t num, float size) {
       drawBar(lines[3]);
       break;
     case 7:
-      glColor3d(COLOR_DARK_BROWN);
+      if (isBoard) glColor3d(COLOR_DARK_BROWN);
       drawBar(lines[1]);
       drawBar(lines[0]);
       drawBar(lines[5]);
       drawBar(lines[6]);
       break;
     case 8:
-      glColor3d(COLOR_DARK_GRAY);
+      if (isBoard) glColor3d(COLOR_DARK_GRAY);
       drawBar(lines[1]);
       drawBar(lines[0]);
       drawBar(lines[5]);
@@ -390,7 +393,7 @@ void drawNum(glm::vec3 pos, std::int8_t num, float size) {
       drawBar(lines[3]);
       break;
     case 9:
-      glColor3d(WHITE);
+      if (isBoard) glColor3d(WHITE);
       drawBar(lines[3]);
       drawBar(lines[1]);
       drawBar(lines[0]);
@@ -424,6 +427,110 @@ void light() {
   glLightfv(GL_LIGHT0, GL_AMBIENT, light_ambient);
 }
 
+void displayDecimal(glm::vec3 center, int num, float size) { 
+    std::vector<int> nums;
+    while (1) {
+      nums.push_back(num % 10);
+      num /= 10;
+      if (!num) {
+        break;
+      }
+    }
+
+    glPushMatrix();
+    glRotatef(normalRot(-(rot_y + pre_rot_y)), 0.0, 1.0, 0.0);
+    glRotatef(normalRot(-(rot_x + pre_rot_x)), 1.0, 0.0, 0.0);
+
+    for (int i = nums.size() - 1; i >= 0; --i) {
+      glm::vec3 cent = center;
+      cent.x += size * (nums.size() - 1 - i);
+      glColor3f(COLOR_GOLD);
+      drawNum(cent, nums[i], size, false);
+    }   
+
+    glPopMatrix();
+}
+
+void displayMineCount() { 
+    int mineNum = mineCount; 
+
+    glPushMatrix();
+    glRotatef(normalRot(-(rot_y + pre_rot_y)), 0.0, 1.0, 0.0);
+    glRotatef(normalRot(-(rot_x + pre_rot_x)), 1.0, 0.0, 0.0);
+
+    glColor3f(COLOR_DARK_GRAY);
+
+    drawMine(glm::vec3(-6.5, 3.5, 0.0), 0.3);
+
+    glPopMatrix();
+
+    displayDecimal(glm::vec3(-5.7, 3.5, 0.0), mineNum, 0.5);
+}
+
+void displayFlagCount(Minesweeper game) { 
+  int flagNum = game.flagCount(); 
+    
+  glPushMatrix();
+  glRotatef(normalRot(-(rot_y + pre_rot_y)), 0.0, 1.0, 0.0);
+  glRotatef(normalRot(-(rot_x + pre_rot_x)), 1.0, 0.0, 0.0);
+
+  glColor3f(COLOR_DARK_GRAY);
+
+  drawFlag(glm::vec3(-6.5, 2.5, 0.0), 0.5);
+
+  glPopMatrix();
+
+  displayDecimal(glm::vec3(-5.7, 2.5, 0.0), flagNum, 0.5);
+}
+
+std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
+std::chrono::steady_clock::time_point now;
+void displayTimer(Minesweeper game) {
+  if (!game.checkLose() && !game.checkWin())
+    now = std::chrono::steady_clock::now();
+  auto duration = std::chrono::duration_cast<std::chrono::seconds>(now - start);
+
+  glPushMatrix();
+  glRotatef(normalRot(-(rot_y + pre_rot_y)), 0.0, 1.0, 0.0);
+  glRotatef(normalRot(-(rot_x + pre_rot_x)), 1.0, 0.0, 0.0);
+
+  glColor3f(1.0f, 1.0f, 1.0f);
+  glBegin(GL_TRIANGLE_FAN);
+  glNormal3f(0, 0, 1);
+  glVertex3f(-6.5f, 1.5f, 0.0f);  // 圆心
+  for (int i = 0; i <= 360; ++i) {
+    glVertex3f(cos(i * 3.14159 / 180.0f) * 0.3f - 6.5f, sin(i * 3.14159 / 180.0f) * 0.3f + 1.5f, 0.0f);
+  }
+  glEnd();
+
+  float angle = (duration.count() % 60) * 6.0f;
+
+  glColor3f(COLOR_DARK_BROWN);
+  glBegin(GL_TRIANGLES);
+  glNormal3f(0, 0, 1);
+  glVertex3f(-6.5f + sin(angle * 3.14159 / 180.0f) * 0.3f, 1.5f + cos(angle * 3.14159 / 180.0f) * 0.3f, 0.0f);
+  glVertex3f(-6.5f + sin((angle - 90.0) * 3.14159 / 180.0f) * 0.025f,
+             1.5f + cos((angle - 90.0) * 3.14159 / 180.0f) * 0.025f, 0.0f);
+  glVertex3f(-6.5f + sin((angle + 90.0) * 3.14159 / 180.0f) * 0.025f,
+             1.5f + cos((angle + 90.0) * 3.14159 / 180.0f) * 0.025f,
+             0.0f);
+  glEnd();
+
+  angle = (duration.count() / 60) * 6.0f;
+  glColor3f(COLOR_LIGHT_GREEN);
+  glBegin(GL_TRIANGLES);
+  glNormal3f(0, 0, 1);
+  glVertex3f(-6.5f + sin(angle * 3.14159 / 180.0f) * 0.2f, 1.5f + cos(angle * 3.14159 / 180.0f) * 0.2f, 0.0f);
+  glVertex3f(-6.5f + sin((angle - 90.0) * 3.14159 / 180.0f) * 0.025f,
+             1.5f + cos((angle - 90.0) * 3.14159 / 180.0f) * 0.025f, 0.0f);
+  glVertex3f(-6.5f + sin((angle + 90.0) * 3.14159 / 180.0f) * 0.025f,
+             1.5f + cos((angle + 90.0) * 3.14159 / 180.0f) * 0.025f, 0.0f);
+  glEnd();
+
+  glPopMatrix();
+
+  displayDecimal(glm::vec3(-5.7, 1.5, 0.0), duration.count(), 0.5);
+}
 
 int main() {
   initOpenGL();
@@ -483,8 +590,14 @@ int main() {
 
     if (isReset) {
       isReset = false;
+      start = std::chrono::steady_clock::now();
       game = Minesweeper(gameSize, gameSize, gameSize, mineCount);
     }
+
+    //displayDecimal(glm::vec3(0, 4, 0), 123, 0.8);
+    displayTimer(game);
+    displayMineCount();
+    displayFlagCount(game);
 
     glm::vec3 id(-1, -1, -1);
     handleClickBlock(id, game, cameraPos, cursorPos);
@@ -579,7 +692,7 @@ void rotateCoord(GLFWwindow* window) {
 
 void drawCone(float size) {
   glBegin(GL_TRIANGLES);
-  float height = 0.5f;
+  float height = 6 * size;
   for (int i = 0; i < 360; i += 10) {
     float x1 = size * cos(i * M_PI / 180.0);
     float y1 = size * sin(i * M_PI / 180.0);
@@ -601,10 +714,10 @@ void drawCone(float size) {
 }
 
 void drawBoard(Minesweeper &game, glm::vec3 id) {
-  bool lose = false;
-  if (game.checkLose() == true) {
-    lose = true;
-    std::cout << "lose!" << std::endl;
+  bool stopGame = false;
+  if (game.checkLose() == true || game.checkWin()) {
+    stopGame = true;
+    //std::cout << "lose!" << std::endl;
   }
 
   float maxWidth = 5.0f;
@@ -626,7 +739,7 @@ void drawBoard(Minesweeper &game, glm::vec3 id) {
                          (k - (gameSize - 1) / 2.0f) * areaWidth);
         switch (status[i][j][k]) {
           case Minesweeper::Unvisit:
-            if (lose && board[i][j][k] == -1) {
+            if (stopGame && board[i][j][k] == -1) {
               glColor3f(COLOR_DARK_GRAY);
               drawMine(center, areaWidth / 2);
               break;
@@ -659,7 +772,7 @@ void drawBoard(Minesweeper &game, glm::vec3 id) {
                 glRotatef(normalRot(-(rot_x + pre_rot_x)), 1.0, 0.0, 0.0);
                 glTranslatef(-center.x, -center.y, -center.z);
                 glColor3f(GREEN);
-                drawNum(center, static_cast<int>(board[i][j][k]), areaWidth / 2);
+                drawNum(center, static_cast<int>(board[i][j][k]), areaWidth / 2, true);
                 glPopMatrix();
             }
             if (board[i][j][k] == -1) {
@@ -680,8 +793,8 @@ void drawMine(glm::vec3 center, float size) {
   // 繪製地雷主體
   glPushMatrix();
   glTranslatef(center.x, center.y, center.z);
-  int stacks = 180;
-  int slices = 180;
+  int stacks = 64;
+  int slices = 64;
   float radius = 0.7f * size;
   for (int i = 0; i <= stacks; ++i) {
     double lat0 = M_PI * (-0.5 + (double)i / stacks);
@@ -725,7 +838,7 @@ void drawMine(glm::vec3 center, float size) {
 
 
 int handleClickBlock(glm::vec3& getId, Minesweeper &game, glm::vec4 start, glm::vec4 end) {
-  if (game.checkLose()) {
+  if (game.checkLose() || game.checkWin()) {
     return - 1;
   }
   static bool flg = false;
