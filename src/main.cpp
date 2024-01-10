@@ -70,8 +70,8 @@ glm::vec3 pos = {0.0, 0.0, 0.0};
 void applyRay(GLFWwindow* window, Camera camera, glm::vec4 &start, glm::vec4 &end);
 int parseGameSetting(const std::string filename);
 void rotateCoord(GLFWwindow* window);
-void drawMine(glm::vec3 center);
-int handleClickBlock(int id, Minesweeper game);
+void drawMine(glm::vec3 center, float size);
+int handleClickBlock(glm::vec3 id, Minesweeper game, glm::vec4 start, glm::vec4 end);
 void drawBoard(Minesweeper game, glm::vec3 id);
 
 void resizeCallback(GLFWwindow* window, int width, int height) {
@@ -125,8 +125,14 @@ double getDistance(const glm::vec3 rayOrigin, const glm::vec3 rayEnd, const glm:
   double min_y = boxCenter.y - boxHalfSize;
   double max_y = boxCenter.y + boxHalfSize;
 
-  if ((rayOrigin.x < min_x && rayEnd.x < min_x) || (rayOrigin.y < min_y && rayEnd.y < min_y) ||
-      (rayOrigin.x > max_x && rayEnd.x > max_x) || (rayOrigin.y > max_y && rayEnd.y > max_y)) {
+  float start_posX = rayOrigin.x * (10.0f - boxCenter.z - 0.5f);
+  float start_posY = rayOrigin.y * (10.0f - boxCenter.z - 0.5f);
+
+  float end_posX = rayEnd.x * (10.0f - boxCenter.z - 0.5f);
+  float end_posY = rayEnd.y * (10.0f - boxCenter.z - 0.5f);
+
+  if ((start_posX < min_x && end_posX < min_x) || (start_posY < min_y && end_posY < min_y) ||
+      (start_posX > max_x && end_posX > max_x) || (start_posY > max_y && end_posY > max_y)) {
     return minDistance;
   }
   minDistance = glm::distance(rayOrigin, boxCenter);
@@ -146,8 +152,10 @@ void cursor_position_callback(double height, double width, glm::mat4 projection,
   //worldPos /= worldPos.w;
   worldPos = inverseView * worldPos;
   //worldPos /= worldPos.w;
-  *xpos = worldPos.x * (10 - 0.5 * gameSize - 0.05 * (gameSize - 1));
-  *ypos = worldPos.y * (10 - 0.5 * gameSize - 0.05 * (gameSize - 1));
+  *xpos = worldPos.x;
+  *ypos = worldPos.y;
+  //*xpos = worldPos.x * (10 - 0.5 * gameSize - 0.05 * (gameSize - 1));
+  //*ypos = worldPos.y * (10 - 0.5 * gameSize - 0.05 * (gameSize - 1));
   //std::cout << "World coordinates: (" << worldPos.x << ", " << worldPos.y << ", " << worldPos.z << ")" << std::endl;
 }
 
@@ -431,9 +439,8 @@ int main() {
     applyRay(window, camera, start, end);
 
     glm::vec3 nearest_id(-1, -1, -1);
-    float minDistance = std::numeric_limits<float>::max();
 
-    // handleClickBlock(nearest_id, game);
+    //handleClickBlock(nearest_id, game, start, end);
     drawBoard(game, nearest_id);
 
     for (std::int8_t i = -4; i < 5; i++) {
@@ -445,6 +452,8 @@ int main() {
       drawNum(glm::vec3(i * 1.1f, 3.0f, 1.1f), (i + 5), 0.5);
       glPopMatrix();
     }
+    glColor3f(COLOR_DARK_GRAY);
+    drawMine(glm::vec3(-5.5f, 3.0f, 1.1f), 0.5);
 #ifdef __APPLE__
     // Some platform need explicit glFlush
     glFlush();
@@ -458,7 +467,7 @@ void applyRay(GLFWwindow* window, Camera camera, glm::vec4& start, glm::vec4& en
   glPushMatrix();
   glfwGetCursorPos(window, &mouseX, &mouseY);
   cursor_position_callback(height, width, camera.getProjection(), camera.getView(), &mouseX, &mouseY);
-  std::cout << "x: " << mouseX << " y: " << mouseY << std::endl;
+  //std::cout << "x: " << mouseX << " y: " << mouseY << std::endl;
 
 
   glm::mat4 trans(1.0f);
@@ -538,9 +547,8 @@ void rotateCoord(GLFWwindow* window) {
   //glRotatef(rotDir.length(), rotDir.x, rotDir.y, rotDir.z);
 }
 
-void drawCone() {
+void drawCone(float size) {
   glBegin(GL_TRIANGLES);
-  float size = 0.1f;
   float height = 0.5f;
   for (int i = 0; i < 360; i += 10) {
     float x1 = size * cos(i * M_PI / 180.0);
@@ -620,14 +628,14 @@ void drawBoard(Minesweeper game, glm::vec3 id) {
   }
 }
 
-void drawMine(glm::vec3 center) { 
+void drawMine(glm::vec3 center, float size) { 
   // 繪製地雷主體
   glColor3f(0.5, 0.5, 0.5);
   glPushMatrix();
   glTranslatef(center.x, center.y, center.z);
   int stacks = 180;
   int slices = 180;
-  float radius = 0.35f;
+  float radius = 0.7f * size;
   for (int i = 0; i <= stacks; ++i) {
     double lat0 = M_PI * (-0.5 + (double)i / stacks);
     double z0 = sin(lat0);
@@ -662,17 +670,41 @@ void drawMine(glm::vec3 center) {
       glPushMatrix();
       glTranslatef(center.x, center.y, center.z);
       glRotatef(j * 45, dir[i][0], dir[i][1], dir[i][2]);
-      drawCone();
+      drawCone(size * 0.2f);
       glPopMatrix();
     }
   }
 }
 
 
-int handleClickBlock(glm::vec3 id, Minesweeper game) {
-  static glm::vec3 lastId(-1, -1, -1);
+int handleClickBlock(glm::vec3 id, Minesweeper game, glm::vec4 start, glm::vec4 end) {
+  glm::vec3 lastId(-1, -1, -1);
+  float minDistance = std::numeric_limits<float>::max();
+
+  float maxWidth = 5.0f;
+  auto status = game.getStatus();
+  auto board = game.getBoard();
+  int mid = gameSize / 2;
+  int first = -mid;
+  int last = gameSize - mid;
+  float areaWidth = maxWidth / gameSize;
+  float blockWidth = areaWidth * 0.9f;
+
   // click on block
   if (isClick) {
+    for (int i = 0; i < gameSize; ++i) {
+      for (int j = 0; j < gameSize; ++j) {
+        for (int k = 0; k < gameSize; ++k) {
+          glm::vec3 center((i - (gameSize - 1) / 2.0f) * areaWidth, (j - (gameSize - 1) / 2.0f) * areaWidth,
+                           (k - (gameSize - 1) / 2.0f) * areaWidth);
+          float tmp = getDistance(start, end, center, blockWidth / 2.0f);
+          if (tmp < minDistance) {
+            minDistance = tmp;
+            id = glm::vec3(i, j, k);
+          }
+        }
+      }
+    }
     lastId = id;
   }
   // release on block
