@@ -11,7 +11,7 @@ private:
 	int depths;
 	int totalMines;
     int remainStepCount;
-
+	bool flgLose;
 
 public:
 	/*
@@ -30,6 +30,7 @@ public:
     void printActualBoard();
     void printStatus();
     bool checkWin();
+    bool checkLose();
 
 private:
     /*
@@ -37,6 +38,7 @@ private:
 	* else : record how many mines nearby
 	*/
 	std::vector<std::vector<std::vector<std::int8_t>>> board;
+
 	std::vector<std::vector<std::vector<TileStatus>>> status;
 	void traverseTile(int row, int col, int depth);
 	bool onBoard(int row, int col, int depth);

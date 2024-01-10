@@ -8,6 +8,7 @@ Minesweeper::Minesweeper(int rows, int cols, int depths, int mines) : rows(rows)
   board.resize(rows, std::vector<std::vector<std::int8_t>>(cols, std::vector<std::int8_t>(depths, 0)));
   status.resize(rows, std::vector<std::vector<TileStatus>>(cols, std::vector<TileStatus>(depths, Unvisit)));
   remainStepCount = rows * cols * depths - mines;
+  flgLose = false;
   placeMines();
 }
 
@@ -71,11 +72,16 @@ bool Minesweeper::checkWin() {
   return remainStepCount == 0;
 }
 
+bool Minesweeper::checkLose() {
+    return flgLose;
+}
+
 int Minesweeper::selectTile(int row, int col, int depth) { 
   if (status[row][col][depth] == Unvisit) {
     // if player select mine
     if (board[row][col][depth] == -1) {
       // lose
+      flgLose = true;
       return 0;
     }
     status[row][col][depth] = Visited;

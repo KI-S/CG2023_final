@@ -12,9 +12,10 @@
 #include "opengl_context.h"
 #include "utils.h"
 #include "minesweeper.h"
-
+#include <filesystem>
 #include <iostream>
 #include <fstream>
+#include <sstream>
 #include <string>
 
 #define ANGLE_TO_RADIAN(x) (float)((x)*M_PI / 180.0f) 
@@ -28,10 +29,19 @@
 #define BULLET_SPEED 3.0f
 
 #define RED 0.905f, 0.298f, 0.235f
-#define BLUE 0.203f, 2.096f, 0.858f
+#define BLUE 0.203f, 0.096f, 0.858f
 #define GREEN 0.18f, 0.8f, 0.443f
 #define YELLOW 1.0f, 1.0f, 0.0f
 #define WHITE 1.0f, 1.0f, 1.0f
+
+#define COLOR_BLUE 0.203f, 0.096f, 0.858f
+#define COLOR_GREEN 0.18f, 0.8f, 0.443f
+#define COLOR_RED 0.905f, 0.298f, 0.235f
+#define COLOR_DARK_BLUE 0.101f, 0.048f, 0.700f
+#define COLOR_DARK_RED 0.452f, 0.199f, 0.117f
+#define COLOR_LIGHT_GREEN 0.19f, 0.9f, 0.443f
+#define COLOR_DARK_BROWN 0.55f, 0.27f, 0.08f
+#define COLOR_DARK_GRAY 0.5f, 0.5f, 0.5f
 
 // init move bool
 bool isSpace = false;
@@ -39,6 +49,7 @@ bool isLeft = false;
 bool isRight = false;
 
 bool isClick;
+bool isPick = true;
 double last_x, last_y;
 double x, y;
 float rot_x = 0.0f, rot_y = 0.0f, pre_rot_x = 0.0f, pre_rot_y = 0.0f;
@@ -46,11 +57,22 @@ double mouseX = 0.0;
 double mouseY = 0.0;
 int width, height;
 
+// game setting
+int gameSize = 3; // default = 3
+int mineCount = 1; // default = 1
+
 // init rotation degree and position information
 float rot = 0.0f;
 float wing_rot = 0.0f;
 bool wing_down = true;
 glm::vec3 pos = {0.0, 0.0, 0.0};
+
+void applyRay(GLFWwindow* window, Camera camera, glm::vec4 &start, glm::vec4 &end);
+int parseGameSetting(const std::string filename);
+void rotateCoord(GLFWwindow* window);
+void drawMine(glm::vec3 center);
+int handleClickBlock(int id, Minesweeper game);
+void drawBoard(Minesweeper game, glm::vec3 id);
 
 void resizeCallback(GLFWwindow* window, int width, int height) {
   OpenGLContext::framebufferResizeCallback(window, width, height);
@@ -111,7 +133,7 @@ double getDistance(const glm::vec3 rayOrigin, const glm::vec3 rayEnd, const glm:
   return minDistance;
 }
 
-void cursor_position_callback(double height, double width, glm::mat4 projection, glm::mat4 view, double* xpos, double* ypos) {
+void cursor_position_callback(double height, double width, glm::mat4 projection, glm::mat4 view, double *xpos, double *ypos) {
   float screenX = *xpos;
   float screenY = height - *ypos;
 
@@ -124,8 +146,8 @@ void cursor_position_callback(double height, double width, glm::mat4 projection,
   //worldPos /= worldPos.w;
   worldPos = inverseView * worldPos;
   //worldPos /= worldPos.w;
-  *xpos = worldPos.x * 8.4;
-  *ypos = worldPos.y * 8.4;
+  *xpos = worldPos.x * (10 - 0.5 * gameSize - 0.05 * (gameSize - 1));
+  *ypos = worldPos.y * (10 - 0.5 * gameSize - 0.05 * (gameSize - 1));
   //std::cout << "World coordinates: (" << worldPos.x << ", " << worldPos.y << ", " << worldPos.z << ")" << std::endl;
 }
 
@@ -160,10 +182,10 @@ void initOpenGL() {
 #endif
 }
 
-void drawCube(glm::vec3 pos) { 
-  float halfLength = 0.5f;
-  float halfWidth = 0.5f;
-  float halfHeight = 0.5f;
+void drawCube(glm::vec3 pos, float halfSize) { 
+  float halfLength = halfSize;
+  float halfWidth = halfSize;
+  float halfHeight = halfSize;
 
   float vertices[][3] = {
       {pos.x - halfLength, pos.y - halfWidth, pos.z - halfHeight},  // 0
@@ -198,142 +220,136 @@ void drawCube(glm::vec3 pos) {
   glEnd();
 }
 
-void drawNum(glm::vec3 pos, std::int8_t num) {
-  float lines[][4][3] = {
-      {{pos.x + 0.3, pos.y + 0.5, pos.z},
-       {pos.x - 0.3, pos.y + 0.5, pos.z},
-       {pos.x - 0.3, pos.y + 0.4, pos.z},
-       {pos.x + 0.3, pos.y + 0.4, pos.z}},
-      {{pos.x - 0.2, pos.y + 0.5, pos.z},
-       {pos.x - 0.3, pos.y + 0.5, pos.z},
-       {pos.x - 0.3, pos.y, pos.z},
-       {pos.x - 0.2, pos.y, pos.z}},
-      {{pos.x - 0.2, pos.y, pos.z},
-       {pos.x - 0.3, pos.y, pos.z},
-       {pos.x - 0.3, pos.y - 0.5, pos.z},
-       {pos.x - 0.2, pos.y - 0.5, pos.z}},
-      {{pos.x + 0.3, pos.y + 0.05, pos.z},
-       {pos.x - 0.3, pos.y + 0.05, pos.z},
-       {pos.x - 0.3, pos.y - 0.05, pos.z},
-       {pos.x + 0.3, pos.y - 0.05, pos.z}},
-      {{pos.x + 0.3, pos.y - 0.4, pos.z},
-       {pos.x - 0.3, pos.y - 0.4, pos.z},
-       {pos.x - 0.3, pos.y - 0.5, pos.z},
-       {pos.x + 0.3, pos.y - 0.5, pos.z}},
-      {{pos.x + 0.3, pos.y + 0.5, pos.z},
-       {pos.x + 0.2, pos.y + 0.5, pos.z},
-       {pos.x + 0.2, pos.y, pos.z},
-       {pos.x + 0.3, pos.y, pos.z}},
-      {{pos.x + 0.3, pos.y, pos.z},
-       {pos.x + 0.2, pos.y, pos.z},
-       {pos.x + 0.2, pos.y - 0.5, pos.z},
-       {pos.x + 0.3, pos.y - 0.5, pos.z}},
-  };
-
+void drawBar(float line[4][3]) {
   glBegin(GL_QUADS);
   glNormal3f(0.0f, 0.0f, 1.0f);
-  if (num == 1) {
-    for (int i = 0; i < 4; i++) {
-      glVertex3f(lines[5][i][0], lines[5][i][1], lines[5][i][2]);
-    }
-    for (int i = 0; i < 4; i++) {
-      glVertex3f(lines[6][i][0], lines[6][i][1], lines[6][i][2]);
-    }
-  } else if (num == 2) {
-    for (int i = 0; i < 4; i++) {
-      glVertex3f(lines[0][i][0], lines[0][i][1], lines[0][i][2]);
-    }
-    for (int i = 0; i < 4; i++) {
-      glVertex3f(lines[5][i][0], lines[5][i][1], lines[5][i][2]);
-    }
-    for (int i = 0; i < 4; i++) {
-      glVertex3f(lines[3][i][0], lines[3][i][1], lines[3][i][2]);
-    }
-    for (int i = 0; i < 4; i++) {
-      glVertex3f(lines[2][i][0], lines[2][i][1], lines[2][i][2]);
-    }
-    for (int i = 0; i < 4; i++) {
-      glVertex3f(lines[4][i][0], lines[4][i][1], lines[4][i][2]);
-    }
-  } else if (num == 3) {
-    for (int i = 0; i < 4; i++) {
-      glVertex3f(lines[0][i][0], lines[0][i][1], lines[0][i][2]);
-    }
-    for (int i = 0; i < 4; i++) {
-      glVertex3f(lines[5][i][0], lines[5][i][1], lines[5][i][2]);
-    }
-    for (int i = 0; i < 4; i++) {
-      glVertex3f(lines[6][i][0], lines[6][i][1], lines[6][i][2]);
-    }
-    for (int i = 0; i < 4; i++) {
-      glVertex3f(lines[4][i][0], lines[4][i][1], lines[4][i][2]);
-    }
-    for (int i = 0; i < 4; i++) {
-      glVertex3f(lines[3][i][0], lines[3][i][1], lines[3][i][2]);
-    }
-  } else if (num == 4) {
-    for (int i = 0; i < 4; i++) {
-      glVertex3f(lines[1][i][0], lines[1][i][1], lines[1][i][2]);
-    }
-    for (int i = 0; i < 4; i++) {
-      glVertex3f(lines[3][i][0], lines[3][i][1], lines[3][i][2]);
-    }
-    for (int i = 0; i < 4; i++) {
-      glVertex3f(lines[6][i][0], lines[6][i][1], lines[6][i][2]);
-    }
-    for (int i = 0; i < 4; i++) {
-      glVertex3f(lines[5][i][0], lines[5][i][1], lines[5][i][2]);
-    }
-  } else if (num == 5) {
-    for (int i = 0; i < 4; i++) {
-      glVertex3f(lines[0][i][0], lines[0][i][1], lines[0][i][2]);
-    }
-    for (int i = 0; i < 4; i++) {
-      glVertex3f(lines[1][i][0], lines[1][i][1], lines[1][i][2]);
-    }
-    for (int i = 0; i < 4; i++) {
-      glVertex3f(lines[3][i][0], lines[3][i][1], lines[3][i][2]);
-    }
-    for (int i = 0; i < 4; i++) {
-      glVertex3f(lines[6][i][0], lines[6][i][1], lines[6][i][2]);
-    }
-    for (int i = 0; i < 4; i++) {
-      glVertex3f(lines[4][i][0], lines[4][i][1], lines[4][i][2]);
-    }
-  } else if (num == 6) {
-    for (int i = 0; i < 4; i++) {
-      glVertex3f(lines[0][i][0], lines[0][i][1], lines[0][i][2]);
-    }
-    for (int i = 0; i < 4; i++) {
-      glVertex3f(lines[1][i][0], lines[1][i][1], lines[1][i][2]);
-    }
-    for (int i = 0; i < 4; i++) {
-      glVertex3f(lines[2][i][0], lines[2][i][1], lines[2][i][2]);
-    }
-    for (int i = 0; i < 4; i++) {
-      glVertex3f(lines[4][i][0], lines[4][i][1], lines[4][i][2]);
-    }
-    for (int i = 0; i < 4; i++) {
-      glVertex3f(lines[6][i][0], lines[6][i][1], lines[6][i][2]);
-    }
-    for (int i = 0; i < 4; i++) {
-      glVertex3f(lines[3][i][0], lines[3][i][1], lines[3][i][2]);
-    }
-  } else if (num == 7) {
-    for (int i = 0; i < 4; i++) {
-      glVertex3f(lines[1][i][0], lines[1][i][1], lines[1][i][2]);
-    }
-    for (int i = 0; i < 4; i++) {
-      glVertex3f(lines[0][i][0], lines[0][i][1], lines[0][i][2]);
-    }
-    for (int i = 0; i < 4; i++) {
-      glVertex3f(lines[5][i][0], lines[5][i][1], lines[5][i][2]);
-    }
-    for (int i = 0; i < 4; i++) {
-      glVertex3f(lines[6][i][0], lines[6][i][1], lines[6][i][2]);
-    }
+  for (int i = 0; i < 4; ++i) {
+    glVertex3f(line[i][0], line[i][1], line[i][2]);
   }
   glEnd();
+}
+
+void drawNum(glm::vec3 pos, std::int8_t num, float size) {
+  float lines[][4][3] = {
+    {{(pos.x + 0.3 * size), (pos.y + 0.5 * size), pos.z},
+     {(pos.x - 0.3 * size), (pos.y + 0.5 * size), pos.z},
+     {(pos.x - 0.3 * size), (pos.y + 0.4 * size), pos.z},
+     {(pos.x + 0.3 * size), (pos.y + 0.4 * size), pos.z}},
+    {{(pos.x - 0.2 * size), (pos.y + 0.5 * size), pos.z},
+     {(pos.x - 0.3 * size), (pos.y + 0.5 * size), pos.z},
+     {(pos.x - 0.3 * size), (pos.y), pos.z},
+     {(pos.x - 0.2 * size), (pos.y), pos.z}},
+    {{(pos.x - 0.2 * size), (pos.y), pos.z},
+     {(pos.x - 0.3 * size), (pos.y), pos.z},
+     {(pos.x - 0.3 * size), (pos.y - 0.5 * size), pos.z},
+     {(pos.x - 0.2 * size), (pos.y - 0.5 * size), pos.z}},
+    {{(pos.x + 0.3 * size), (pos.y + 0.05 * size), pos.z},
+     {(pos.x - 0.3 * size), (pos.y + 0.05 * size), pos.z},
+     {(pos.x - 0.3 * size), (pos.y - 0.05 * size), pos.z},
+     {(pos.x + 0.3 * size), (pos.y - 0.05 * size), pos.z}},
+    {{(pos.x + 0.3 * size), (pos.y - 0.4 * size), pos.z},
+     {(pos.x - 0.3 * size), (pos.y - 0.4 * size), pos.z},
+     {(pos.x - 0.3 * size), (pos.y - 0.5 * size), pos.z},
+     {(pos.x + 0.3 * size), (pos.y - 0.5 * size), pos.z}},
+    {{(pos.x + 0.3 * size), (pos.y + 0.5 * size), pos.z},
+     {(pos.x + 0.2 * size), (pos.y + 0.5 * size), pos.z},
+     {(pos.x + 0.2 * size), (pos.y), pos.z},
+     {(pos.x + 0.3 * size), (pos.y), pos.z}},
+    {{(pos.x + 0.3 * size), (pos.y), pos.z},
+     {(pos.x + 0.2 * size), (pos.y), pos.z},
+     {(pos.x + 0.2 * size), (pos.y - 0.5 * size), pos.z},
+     {(pos.x + 0.3 * size), (pos.y - 0.5 * size), pos.z}},
+    {{(pos.x + 0.05 * size), (pos.y + 0.5 * size), pos.z},
+     {(pos.x - 0.05 * size), (pos.y + 0.5 * size), pos.z},
+     {(pos.x - 0.05 * size), (pos.y - 0.5 * size), pos.z},
+     {(pos.x + 0.05 * size), (pos.y - 0.5 * size), pos.z}},
+  };
+
+  //glBegin(GL_QUADS);
+  //glNormal3f(0.0f, 0.0f, 1.0f);
+  // glTranslatef();
+  switch (num) {
+    case 0:
+      drawBar(lines[1]);
+      drawBar(lines[0]);
+      drawBar(lines[5]);
+      drawBar(lines[6]);
+      drawBar(lines[2]);
+      drawBar(lines[4]);
+      break;
+    case 1:
+      glColor3d(COLOR_BLUE);
+      drawBar(lines[7]);
+      break;
+    case 2:
+      glColor3d(COLOR_GREEN);
+      drawBar(lines[0]);
+      drawBar(lines[5]);
+      drawBar(lines[3]);
+      drawBar(lines[2]);
+      drawBar(lines[4]);
+      break;
+    case 3:
+      glColor3d(COLOR_RED);
+      drawBar(lines[0]);
+      drawBar(lines[5]);
+      drawBar(lines[6]);
+      drawBar(lines[4]);
+      drawBar(lines[3]);
+      break;
+    case 4:
+      glColor3d(COLOR_DARK_BLUE);
+      drawBar(lines[1]);
+      drawBar(lines[3]);
+      drawBar(lines[6]);
+      drawBar(lines[5]);
+      break;
+    case 5:
+      glColor3d(COLOR_DARK_RED);
+      drawBar(lines[0]);
+      drawBar(lines[1]);
+      drawBar(lines[3]);
+      drawBar(lines[6]);
+      drawBar(lines[4]);
+      break;
+    case 6:
+      glColor3d(COLOR_LIGHT_GREEN);
+      drawBar(lines[0]);
+      drawBar(lines[1]);
+      drawBar(lines[2]);
+      drawBar(lines[4]);
+      drawBar(lines[6]);
+      drawBar(lines[3]);
+      break;
+    case 7:
+      glColor3d(COLOR_DARK_BROWN);
+      drawBar(lines[1]);
+      drawBar(lines[0]);
+      drawBar(lines[5]);
+      drawBar(lines[6]);
+      break;
+    case 8:
+      glColor3d(COLOR_DARK_GRAY);
+      drawBar(lines[1]);
+      drawBar(lines[0]);
+      drawBar(lines[5]);
+      drawBar(lines[6]);
+      drawBar(lines[2]);
+      drawBar(lines[4]);
+      drawBar(lines[3]);
+      break;
+    case 9:
+      glColor3d(WHITE);
+      drawBar(lines[3]);
+      drawBar(lines[1]);
+      drawBar(lines[0]);
+      drawBar(lines[5]);
+      drawBar(lines[6]);
+      drawBar(lines[4]);
+      break;
+    default:
+      break;
+  }
 }
 
 void light() {
@@ -358,26 +374,11 @@ void light() {
 }
 
 
-/* int main() { 
-  Minesweeper game = Minesweeper(3, 3, 3, 1);
-  game.flagTile(0, 1, 0);
-  game.flagTile(1, 1, 0);
-  game.flagTile(1, 0, 0);
-  game.flagTile(0, 1, 1);
-  game.flagTile(1, 1, 1);
-  game.flagTile(1, 0, 1);
-  game.flagTile(0, 0, 1);
-  game.selectTile(0, 0, 0);
-  game.printBoard();
-  game.printActualBoard();
-  game.printStatus();
-  return 0; 
-}*/
-
 int main() {
   initOpenGL();
   GLFWwindow* window = OpenGLContext::getWindow();
   glfwGetWindowSize(window, &width, &height);
+  glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 
   glm::vec3 ray_direction = {0.0, 0.0, 0.0};
 
@@ -388,19 +389,14 @@ int main() {
   glfwSetWindowUserPointer(window, &camera);
 
   // read setting file
-  std::ifstream set_file("setting.txt");
-  if (set_file.is_open()) {
-    while (set_file) {
-      std::string line;
-      std::getline(set_file, line);
-    }
+  if (parseGameSetting("setting.txt") == -1) {
+    std::cout << "Read file failed" << std::endl;
+    gameSize = 3;
+    mineCount = 1;
   }
 
-  // Initisl mineswapper
-  enum TileStatus : int8_t { Unvisit, Flagged, Visited };
-  Minesweeper game = Minesweeper(3, 3, 3, 1);
-  std::vector<std::vector<std::vector<std::int8_t>>> board = game.getBoard();
-  std::vector<std::vector<std::vector<Minesweeper::TileStatus>>> status = game.getStatus();
+  // Initialize mineswapper
+  Minesweeper game = Minesweeper(gameSize, gameSize, gameSize, mineCount);
 
   // Main rendering loop
   while (!glfwWindowShouldClose(window)) {
@@ -426,104 +422,27 @@ int main() {
     glClearDepth(1.0f);
     light();
 #endif
-    glm::vec3 half_size = {0.5, 0.5, 0.5};
-    glfwGetCursorPos(window, &mouseX, &mouseY);
-    cursor_position_callback(height, width, camera.getProjection(), camera.getView(), &mouseX, &mouseY);
-    //std::cout << mouseX << ", " << mouseY << "\n" << std::endl;
+    // use mouse to rotate
+    rotateCoord(window);
 
-    if (isClick) {
-      glfwGetCursorPos(window, &x, &y);
-      rot_y = normalRot((float)(x - last_x) * 0.1f);
-      rot_x = normalRot((float)(y - last_y) * 0.1f);
+    // apply ray
+    glm::vec4 start;
+    glm::vec4 end;
+    applyRay(window, camera, start, end);
 
-      //ray_direction = GetRayFromMouse(camera, mouseX, mouseY);
-    } else {
-      pre_rot_x += rot_x;
-      pre_rot_y += rot_y;
-      pre_rot_x = normalRot(pre_rot_x);
-      pre_rot_y = normalRot(pre_rot_y);
-      rot_x = 0.0f;
-      rot_y = 0.0f;
-    }
-
-    //glPushMatrix();
-    //glTranslated(0.0, 0.0, -1.0);
-    
-    //glPopMatrix();
-    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-    if ((pre_rot_x >= 90.0f && pre_rot_x < 270.0f) || (pre_rot_x <= -90.0f && pre_rot_x > -270.0f)) {
-      rot_y = -rot_y;
-    }
-    
-    //glTranslated(0.0, 0.0, -10.0);
-
-    glRotatef(normalRot(rot_x + pre_rot_x), 1.0, 0.0, 0.0);
-    glRotatef(normalRot(rot_y + pre_rot_y), 0.0, 1.0, 0.0);
-
-    glPushMatrix();
-    //glTranslated(0.0, 0.0, 1.6);
-    glm::mat4 trans(1.0f);
-    trans = glm::rotate(trans, glm::radians(-normalRot(rot_y + pre_rot_y)), glm::vec3(0.0, 1.0, 0.0));
-    trans = glm::rotate(trans, glm::radians(-normalRot(rot_x + pre_rot_x)), glm::vec3(1.0, 0.0, 0.0));
-    glm::vec4 start = (trans * glm::vec4(mouseX, mouseY, 5.0, 1.0));
-    glm::vec4 end = (trans * glm::vec4(mouseX, mouseY, -5.0, 1.0));
-    glColor3d(RED);
-    glBegin(GL_LINES);
-    glVertex3d(start.x, start.y, start.z);
-    glVertex3d(end.x, end.y, end.z);
-    glEnd();
-    glPopMatrix();
-    int nearest_id = -1000;
+    glm::vec3 nearest_id(-1, -1, -1);
     float minDistance = std::numeric_limits<float>::max();
 
-    for (int i = -1; i < 2; ++i) {
-      for (int j = -1; j < 2; ++j) {
-        for (int k = -1; k < 2; ++k) {
-          // Calculate cube's position
-          glm::vec3 cubePos = glm::vec3(i * 1.1f, j * 1.1f, k * 1.1f);
+    // handleClickBlock(nearest_id, game);
+    drawBoard(game, nearest_id);
 
-          double distance = getDistance(glm::vec3(start.x, start.y, start.z),
-                                        glm::vec3(end.x, end.y, end.z), cubePos, 0.5);
-          if (distance < minDistance) {
-            minDistance = distance;
-            nearest_id = i * 100 + j * 10 + k;
-          }
-        }
-      }
-    }
-
-    for (int i = -1; i < 2; i++) {
-      for (int j = -1; j < 2; j++) {
-        for (int k = -1; k < 2; k++) {
-          if ((i * 100 + j * 10 + k) != nearest_id) {
-            glColor3f(WHITE);
-          } else {
-            glColor3f(YELLOW);
-
-          }
-          if (i == 1 && j == 1 && k == 1) {
-            glPushMatrix();
-            glTranslatef(i * 1.1f, j * 1.1f, k * 1.1f);
-            glRotatef(normalRot(-(rot_y + pre_rot_y)), 0.0, 1.0, 0.0);
-            glRotatef(normalRot(-(rot_x + pre_rot_x)), 1.0, 0.0, 0.0);
-            glTranslatef(-i * 1.1f, -j * 1.1f, -k * 1.1f);
-            glColor3f(GREEN);
-            drawNum(glm::vec3(i * 1.1f, j * 1.1f, k * 1.1f), 2);
-            glPopMatrix();
-          } else {
-            drawCube(glm::vec3(i * 1.1f, j * 1.1f, k * 1.1f));
-          }
-        }
-      }
-    }
-
-    for (std::int8_t i = -3; i < 4; i++) {
+    for (std::int8_t i = -4; i < 5; i++) {
       glPushMatrix();
       glRotatef(normalRot(-(rot_y + pre_rot_y)), 0.0, 1.0, 0.0);
       glRotatef(normalRot(-(rot_x + pre_rot_x)), 1.0, 0.0, 0.0);
       //glTranslatef();
       glColor3f(YELLOW);
-      drawNum(glm::vec3(i * 1.1f, 3.0f, 1.1f), (i + 4));
+      drawNum(glm::vec3(i * 1.1f, 3.0f, 1.1f), (i + 5), 0.5);
       glPopMatrix();
     }
 #ifdef __APPLE__
@@ -533,4 +452,235 @@ int main() {
     glfwSwapBuffers(window);
   }
   return 0;
+}
+
+void applyRay(GLFWwindow* window, Camera camera, glm::vec4& start, glm::vec4& end) {
+  glPushMatrix();
+  glfwGetCursorPos(window, &mouseX, &mouseY);
+  cursor_position_callback(height, width, camera.getProjection(), camera.getView(), &mouseX, &mouseY);
+  std::cout << "x: " << mouseX << " y: " << mouseY << std::endl;
+
+
+  glm::mat4 trans(1.0f);
+  trans = glm::rotate(trans, glm::radians(-normalRot(rot_y + pre_rot_y)), glm::vec3(0.0, 1.0, 0.0));
+  trans = glm::rotate(trans, glm::radians(-normalRot(rot_x + pre_rot_x)), glm::vec3(1.0, 0.0, 0.0));
+  start = (trans * glm::vec4(mouseX, mouseY, 5.0, 1.0));
+  end = (trans * glm::vec4(mouseX, mouseY, -5.0, 1.0));
+
+
+  glColor3d(RED);
+  glBegin(GL_LINES);
+  glVertex3d(start.x, start.y, start.z);
+  glVertex3d(end.x, end.y, end.z);
+  glEnd();
+  glPopMatrix();
+}
+
+int parseGameSetting(const std::string filename) {
+  std::ifstream file("setting.txt");
+
+  if (!file.is_open()) {
+    std::cout << "file name should be " << filename << std::endl;
+    return -1;
+  }
+
+  std::string line;
+  while (std::getline(file, line)) {
+    std::istringstream iss(line);
+    std::string key;
+    int value;
+
+    if (iss >> key >> value) {
+      if (key == "GAME_SIZE") {
+        std::cout << "game size : " << value << std::endl;
+        // 在這裡處理遊戲大小的邏輯
+        gameSize = value;
+      } else if (key == "MINE_COUNT") {
+        std::cout << "mine count : " << value << std::endl;
+        // 在這裡處理地雷數量的邏輯
+        mineCount = value;
+      } else {
+        std::cerr << "undefine key : " << key << std::endl;
+      }
+    }
+  }
+
+  file.close();
+
+  return 0;
+}
+
+void rotateCoord(GLFWwindow* window) {
+  float speed = 0.1f;
+  static glm::vec3 up(0, 1, 0);
+  if (isClick) {
+    glfwGetCursorPos(window, &x, &y);
+    rot_y = normalRot((float)(x - last_x) * speed);
+    rot_x = normalRot((float)(y - last_y) * speed);
+
+    // ray_direction = GetRayFromMouse(camera, mouseX, mouseY);
+  } else {
+    pre_rot_x += rot_x;
+    pre_rot_y += rot_y;
+    pre_rot_x = normalRot(pre_rot_x);
+    pre_rot_y = normalRot(pre_rot_y);
+    rot_x = 0.0f;
+    rot_y = 0.0f;
+  }
+  if ((pre_rot_x >= 90.0f && pre_rot_x < 270.0f) || (pre_rot_x <= -90.0f && pre_rot_x > -270.0f)) {
+    rot_y = -rot_y;
+  }
+  glRotatef(normalRot(rot_x + pre_rot_x), 1.0, 0.0, 0.0);
+  glRotatef(normalRot(rot_y + pre_rot_y), 0.0, 1.0, 0.0);
+
+  
+  //glm::vec3 rotDir = glm::cross(glm::vec3(rot_x, rot_y, 0), glm::vec3(pre_rot_x, pre_rot_y, 1));
+  //glRotatef(rotDir.length(), rotDir.x, rotDir.y, rotDir.z);
+}
+
+void drawCone() {
+  glBegin(GL_TRIANGLES);
+  float size = 0.1f;
+  float height = 0.5f;
+  for (int i = 0; i < 360; i += 10) {
+    float x1 = size * cos(i * M_PI / 180.0);
+    float y1 = size * sin(i * M_PI / 180.0);
+    float x2 = size * cos((i + 10) * M_PI / 180.0);
+    float y2 = size * sin((i + 10) * M_PI / 180.0);
+
+    // 側面三角形
+    float nx1 = cos(i * M_PI / 180.0);
+    float ny1 = sin(i * M_PI / 180.0);
+    float nx2 = cos((i + 10) * M_PI / 180.0);
+    float ny2 = sin((i + 10) * M_PI / 180.0);
+
+    glNormal3f(nx1 + nx2, ny1 + ny2, height);
+    glVertex3f(0.0, 0.0, height);
+    glVertex3f(x1, y1, 0.0);
+    glVertex3f(x2, y2, 0.0);
+  }
+  glEnd();
+}
+
+void drawBoard(Minesweeper game, glm::vec3 id) {
+  game.selectTile(0, 0, 0);
+  if (game.checkLose() == true) {
+    std::cout << "wtf lose?" << std::endl;
+  }
+
+  float maxWidth = 5.0f;
+  auto status = game.getStatus();
+  auto board = game.getBoard();
+  int mid = gameSize / 2;
+  int first = -mid;
+  int last = gameSize - mid;
+  float areaWidth = maxWidth / gameSize;
+  float blockWidth = areaWidth * 0.9f;
+  //std::cout << blockWidth << ' ';
+
+  //game.printStatus();
+  for (int i = 0; i < gameSize; ++i) {
+    for (int j = 0; j < gameSize; ++j) {
+      for (int k = 0; k < gameSize; ++k) {
+        glm::vec3 center((i - (gameSize - 1) / 2.0f) * areaWidth,
+                         (j - (gameSize - 1) / 2.0f) * areaWidth,
+                         (k - (gameSize - 1) / 2.0f) * areaWidth);
+        switch (status[i][j][k]) {
+          case Minesweeper::Unvisit:
+            if (id.x == i && id.y == j && id.z == k) {
+              glColor3f(YELLOW);
+            } else {
+              glColor3f(WHITE);
+            }
+            drawCube(center, blockWidth / 2);
+            break;
+          case Minesweeper::Flagged:
+            // drawFlag(glm::vec3(), blockWidth);
+            break;
+          case Minesweeper::Visited:
+            //if (board[i][j][k] != 0) {
+
+            glPushMatrix();
+            glTranslatef(center.x, center.y, center.z);
+            glRotatef(normalRot(-(rot_y + pre_rot_y)), 0.0, 1.0, 0.0);
+            glRotatef(normalRot(-(rot_x + pre_rot_x)), 1.0, 0.0, 0.0);
+            glTranslatef(-center.x, -center.y, -center.z);
+            glColor3f(GREEN);
+            drawNum(center, static_cast<int>(board[i][j][k]), areaWidth / 2);
+            glPopMatrix();
+
+            //}
+            break;
+          default:
+            std::cout << static_cast<int>(status[i][j][k]) << " why?" << std::endl;
+            break;
+        }
+      }
+    }
+  }
+}
+
+void drawMine(glm::vec3 center) { 
+  // 繪製地雷主體
+  glColor3f(0.5, 0.5, 0.5);
+  glPushMatrix();
+  glTranslatef(center.x, center.y, center.z);
+  int stacks = 180;
+  int slices = 180;
+  float radius = 0.35f;
+  for (int i = 0; i <= stacks; ++i) {
+    double lat0 = M_PI * (-0.5 + (double)i / stacks);
+    double z0 = sin(lat0);
+    double zr0 = cos(lat0);
+
+    double lat1 = M_PI * (-0.5 + (double)(i - 1) / stacks);
+    double z1 = sin(lat1);
+    double zr1 = cos(lat1);
+
+    glBegin(GL_QUAD_STRIP);
+    for (int j = 0; j <= slices; ++j) {
+      double lng = 2 * M_PI * (double)(j - 1) / slices;
+      double x = cos(lng);
+      double y = sin(lng);
+
+      glNormal3f(x * zr0, y * zr0, z0);
+      glVertex3f(radius * x * zr0, radius * y * zr0, radius * z0);
+
+      glNormal3f(x * zr1, y * zr1, z1);
+      glVertex3f(radius * x * zr1, radius * y * zr1, radius * z1);
+    }
+    glEnd();
+  }
+  glPopMatrix();
+
+  // 繪製地雷上的尖刺，可以根據需要增減尖刺的數量和位置
+  int dir[][3] = {{1, 0, 0}, {0, 1, 0}, {1, 1, 0}, {-1, 1, 0}};
+  for (int i = 0; i < 4; ++i) {
+    for (int j = 0; j < 8; ++j) {
+      float x = 0.2 * cos(45 * j);
+      float y = 0.2 * sin(45 * j);
+      glPushMatrix();
+      glTranslatef(center.x, center.y, center.z);
+      glRotatef(j * 45, dir[i][0], dir[i][1], dir[i][2]);
+      drawCone();
+      glPopMatrix();
+    }
+  }
+}
+
+
+int handleClickBlock(glm::vec3 id, Minesweeper game) {
+  static glm::vec3 lastId(-1, -1, -1);
+  // click on block
+  if (isClick) {
+    lastId = id;
+  }
+  // release on block
+  if (!isClick && lastId == id) {
+    lastId = glm::vec3(-1, -1, -1);
+    if (lastId.x >= gameSize || lastId.y >= gameSize || lastId.z >= gameSize) {
+      return -99999;
+    }
+    return game.selectTile(id.x, id.y, id.z);
+  }
 }
